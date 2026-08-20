@@ -1,0 +1,463 @@
+/* ============================================================
+   DESIGN TOKENS
+
+   Grayscale carries the layout. Colour is reserved for sign and
+   verdict — rise/fall, survived/rejected — and never used
+   decoratively. Desaturated on purpose: these must read as
+   instrument states, not as a trading terminal.
+
+   White is an accent, not the default. Body copy sits at
+   --text-2; only headings, key metrics and marked spans are
+   allowed --text.
+   ============================================================ */
+:root {
+  --bg:        #000000;
+  --surface-1: #050506;
+  --surface-2: #0A0A0C;
+
+  --text:      #F7F7F8;
+  --text-2:    #B7B8BB;
+  /* The floor for readable text. Most of the interface is 11px mono at this
+     value, and going darker stops being restraint and starts being
+     unreadable. Anything quieter than this is decoration, not copy. */
+  --text-3:    #7F8085;
+
+  /* Qarau neutrals. The source logo keeps its metallic rendering; the UI uses
+     flat grayscale so the mark stays visually distinctive. */
+  --metal-hi:  #F7F7F8;
+  --metal-mid: #A5A6AA;
+  --metal-low: #4C4E54;
+  --brand-fill: #F7F7F8;
+  --surface-raised: #090A0C;
+  --brand-glow: rgba(222, 223, 227, 0.12);
+  --brand-line: rgba(222, 223, 227, 0.34);
+
+  /* Semantic pair. Muted enough to sit on black without glowing. */
+  --pos:       #3E9E70;
+  --pos-soft:  #2C6E4E;
+  --pos-wash:  rgba(62, 158, 112, 0.14);
+
+  --neg:       #C2564E;
+  --neg-soft:  #8A3C36;
+  --neg-wash:  rgba(194, 86, 78, 0.14);
+
+  --border:        #202126;
+  --border-soft:   rgba(237, 238, 241, 0.11);
+  --border-strong: rgba(237, 238, 241, 0.25);
+
+  --radius-sm: 3px;
+  --radius-md: 6px;
+
+  /* Two registers. Editorial for anything a person reads as language;
+     mono for anything the system is reporting about itself. */
+  --font: "Inter", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+
+  --gut: 32px;
+  --maxw: 1440px;
+
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  /* Grey is the default voice. Anything white had to earn it. */
+  color: var(--text-2);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-variant-numeric: tabular-nums;
+  text-rendering: optimizeLegibility;
+}
+
+::selection { background: var(--metal-hi); color: #000000; }
+
+a { color: inherit; text-decoration: none; }
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Keyboard focus only — never a mouse ring. */
+:focus { outline: none; }
+:focus-visible {
+  outline: 1px solid var(--metal-mid);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px var(--brand-glow);
+}
+
+/* ============================================================
+   TYPOGRAPHY
+
+   Body copy inherits grey from <body>. Headings and metrics opt
+   into white explicitly, so the eye lands on the few things that
+   matter on a screen rather than on everything at once.
+   ============================================================ */
+
+/* Statement type — homepage, section openers */
+.display {
+  color: var(--text);
+  font-size: clamp(40px, 7.2vw, 108px);
+  line-height: 0.94;
+  letter-spacing: -0.035em;
+  font-weight: 600;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.display-sm {
+  color: var(--text);
+  font-size: clamp(30px, 4.4vw, 62px);
+  line-height: 1.0;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+  margin: 0;
+}
+
+.h1 {
+  color: var(--text);
+  font-size: clamp(28px, 3.4vw, 46px);
+  line-height: 1.04;
+  letter-spacing: -0.028em;
+  font-weight: 600;
+  margin: 0;
+}
+
+.h2 {
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Page statements use the brightest neutral. Semantic verdicts retain their
+   dedicated positive/negative colours. */
+.display:not(.pos):not(.neg),
+.display-sm,
+.h1 {
+  color: var(--metal-hi);
+}
+
+/* Small uppercase metadata — the connective tissue of the whole UI.
+   Mono on purpose: these are instrument readings, not prose. */
+.meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.3;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 400;
+  color: var(--text-3);
+  margin: 0;
+}
+
+.meta-2 { color: var(--text-2); }
+.meta-1 { color: var(--text); }
+
+.body {
+  font-size: 16px;
+  line-height: 1.62;
+  color: var(--text-2);
+  margin: 0;
+  max-width: 62ch;
+}
+
+.body-sm {
+  font-size: 14px;
+  line-height: 1.62;
+  color: var(--text-2);
+  margin: 0;
+  max-width: 62ch;
+}
+
+/* Metrics — large figure over a small uppercase label */
+.metric {
+  color: var(--text);
+  font-size: clamp(30px, 3.6vw, 52px);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.metric-sm {
+  color: var(--text);
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ============================================================
+   VISUAL DNA
+   Shared primitives: system metadata, coordinates, observation
+   glyphs, confidence density. Used identically on every page.
+   ============================================================ */
+
+.sys {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.sys-inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0 22px;
+}
+
+.sys-row {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sys-key { color: var(--text-3); }
+.sys-sep { color: var(--metal-low); margin: 0 6px; }
+.sys-val { color: var(--text-2); }
+
+.coords {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.coords-gap { display: inline-block; width: 12px; }
+
+.coords-place {
+  margin-left: 16px;
+  color: var(--metal-low);
+}
+
+.coords-line {
+  margin: 10px 0 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+}
+
+.glyph {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1;
+}
+.glyph-on   { color: var(--text); }
+.glyph-hist { color: var(--text-2); }
+.glyph-req  { color: var(--metal-low); }
+.glyph-none { color: #383A3F; }
+
+/* Confidence as line density, never as a coloured badge. */
+.strength {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+
+.strength-bar {
+  width: 3px;
+  height: 12px;
+  background: #292A30;
+  display: block;
+}
+.strength-bar.is-on { background: var(--text); }
+.strength.is-neg .strength-bar.is-on { background: var(--neg); }
+
+.arrow-to {
+  color: var(--text-3);
+  margin: 0 6px;
+  font-weight: 400;
+}
+
+.dim   { color: var(--text-2); }
+.muted { color: var(--text-3); }
+
+/* Mark the one phrase in a paragraph that carries the point. */
+.key { color: var(--text); font-weight: 500; }
+
+/* ============================================================
+   SEMANTIC STATE
+   Sign and verdict only: rise/fall, survived/rejected.
+   Never applied to a whole surface, never to decoration.
+   ============================================================ */
+.pos { color: var(--pos); }
+.neg { color: var(--neg); }
+
+.val {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.1em;
+}
+
+/* A small square is the entire footprint of colour in a row. */
+.val-mark {
+  width: 6px;
+  height: 6px;
+  display: block;
+  flex: none;
+  background: currentColor;
+}
+.val-mark.is-hollow { background: none; border: 1px solid currentColor; }
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+.shell {
+  width: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 var(--gut);
+}
+
+.rule {
+  height: 1px;
+  background: var(--border-strong);
+  border: 0;
+  margin: 0;
+  width: 100%;
+}
+
+.rule-soft { background: var(--border-soft); }
+
+.section { padding: 120px 0; }
+.section-tight { padding: 64px 0; }
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 26px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+  transition: background 180ms var(--ease), color 180ms var(--ease),
+              border-color 180ms var(--ease), box-shadow 180ms var(--ease),
+              transform 180ms var(--ease);
+}
+
+.btn-primary {
+  background: var(--brand-fill);
+  color: #000000;
+  border: 1px solid var(--metal-hi);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.75), 0 10px 34px rgba(0, 0, 0, 0.34);
+}
+.btn-primary:hover {
+  border-color: #FFFFFF;
+  box-shadow: inset 0 1px #FFFFFF, 0 0 24px var(--brand-glow), 0 12px 38px rgba(0, 0, 0, 0.42);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+}
+.btn-secondary:hover { border-color: var(--metal-mid); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04); }
+
+.btn:disabled {
+  opacity: 0.42;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-ghost {
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text-2);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  transition: color 160ms var(--ease);
+}
+.btn-ghost:hover { color: var(--text); }
+
+/* The arrow advances on hover — the only flourish permitted. */
+.btn .arrow, .btn-ghost .arrow {
+  display: inline-block;
+  transition: transform 220ms var(--ease);
+}
+.btn:hover .arrow, .btn-ghost:hover .arrow { transform: translateX(4px); }
+
+/* ============================================================
+   MOTION
+   Fades and reveals. The system should look like it is computing.
+   ============================================================ */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 700ms var(--ease), transform 700ms var(--ease);
+}
+.reveal.is-in { opacity: 1; transform: none; }
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes blink { 0%, 45% { opacity: 1; } 50%, 100% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .reveal { opacity: 1; transform: none; }
+}
+
+@media (forced-colors: active) {
+  .display:not(.pos):not(.neg),
+  .display-sm,
+  .h1 {
+    background: none;
+    color: CanvasText;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 900px) {
+  :root { --gut: 20px; }
+  .section { padding: 76px 0; }
+}

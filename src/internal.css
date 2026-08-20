@@ -1,0 +1,821 @@
+/* ============================================================
+   INTERNAL RESEARCH SYSTEM
+   Screens that exist only behind an authenticated owner session.
+   ============================================================ */
+
+/* --- Authenticate: the front door --------------------------- */
+.boot {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+.boot-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 34px 40px;
+  border: 1px solid var(--border);
+  border-top-color: var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.52), inset 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.boot-brand {
+  display: block;
+  width: min(55vw, 240px);
+  height: auto;
+}
+
+.gate {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  padding: 28px;
+  position: relative;
+  overflow: hidden;
+}
+
+.gate::before {
+  content: "";
+  position: absolute;
+  top: 18%;
+  left: -8vw;
+  width: 42vw;
+  min-width: 340px;
+  height: 1px;
+  background: var(--brand-line);
+  transform: rotate(-4deg);
+  opacity: 0.44;
+  pointer-events: none;
+}
+
+.gate-inner {
+  width: 100%;
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 48px 52px;
+  position: relative;
+  z-index: 1;
+  border: 1px solid var(--border);
+  border-top-color: var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: 0 34px 100px rgba(0, 0, 0, 0.62), inset 0 1px rgba(255, 255, 255, 0.045);
+}
+
+.gate-brand {
+  margin-bottom: 40px;
+  animation: fade-in 700ms var(--ease) both;
+}
+
+.gate-brand::after {
+  content: "";
+  display: block;
+  width: 180px;
+  height: 1px;
+  margin-top: 24px;
+  background: var(--metal-mid);
+  opacity: 0.62;
+}
+
+.gate-brand-logo {
+  display: block;
+  width: min(100%, 300px);
+  height: auto;
+}
+
+.gate-title {
+  animation: fade-in 800ms 100ms var(--ease) both;
+}
+
+.gate-sub {
+  margin: 16px 0 0;
+  color: var(--text-2);
+  animation: fade-in 800ms 220ms var(--ease) both;
+}
+
+.gate-form {
+  margin-top: 40px;
+  animation: fade-in 800ms 340ms var(--ease) both;
+}
+
+.gate-field {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.gate-input {
+  flex: 1;
+  min-width: 220px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border-strong);
+  outline: none;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 16px;
+  letter-spacing: 0.16em;
+  padding: 0 0 12px;
+  transition: border-color 200ms var(--ease), box-shadow 200ms var(--ease);
+}
+.gate-input:focus {
+  border-color: var(--metal-mid);
+  box-shadow: 0 1px var(--brand-glow);
+}
+.gate-input::placeholder { color: #333333; letter-spacing: 0.1em; }
+.gate-input:disabled { opacity: 0.4; }
+
+.gate-error { color: var(--text); margin-top: 20px; }
+
+/* --- Nav: session state ------------------------------------- */
+.nav-mark-env {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.nav-session {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: none;
+}
+
+.nav-owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.nav-owner-dot {
+  width: 5px;
+  height: 5px;
+  background: var(--brand-fill);
+  box-shadow: 0 0 10px var(--brand-glow);
+  border-radius: 50%;
+  display: block;
+}
+
+.nav-signout {
+  color: var(--text-3);
+  padding: 6px 0;
+  transition: color 160ms var(--ease);
+  white-space: nowrap;
+}
+.nav-signout:hover { color: var(--text); }
+
+/* --- Run configuration -------------------------------------- */
+.cfg {
+  padding: 8px 28px 30px;
+  border: 1px solid var(--border);
+  border-top-color: var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.035), 0 22px 60px rgba(0, 0, 0, 0.22);
+}
+
+.cfg-row {
+  display: grid;
+  grid-template-columns: 172px 1fr;
+  gap: 28px;
+  align-items: baseline;
+  padding: 20px 0;
+  border-top: 1px solid var(--border);
+}
+.cfg-row:last-of-type { border-bottom: 1px solid var(--border); }
+
+.cfg-label { padding-top: 4px; }
+
+.cfg-opts { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.opt {
+  padding: 8px 15px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.012);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+  transition: border-color 160ms var(--ease), color 160ms var(--ease);
+}
+.opt:hover:not(:disabled) { color: var(--text-2); border-color: var(--border-strong); }
+.opt.is-active {
+  color: #000000;
+  background: var(--brand-fill);
+  border-color: var(--metal-hi);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.72);
+}
+.opt:disabled { opacity: 0.45; cursor: default; }
+
+.cfg-go {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 34px;
+  flex-wrap: wrap;
+  padding-top: 34px;
+}
+
+.run-out { padding: 46px 0 20px; }
+
+.run-out-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.run-links { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 28px; }
+
+.rej-list { margin-top: 56px; }
+.rej-why { max-width: 44ch; margin: 0; }
+
+/* --- Signal inventory --------------------------------------- */
+.inv-stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 26px;
+  padding: 30px 28px;
+  border: 1px solid var(--border);
+  border-top-color: var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.035);
+  margin-bottom: 40px;
+}
+.inv-stat .metric-sm { margin-bottom: 12px; }
+
+.sigrow {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1.5fr) minmax(290px, 1fr) minmax(215px, 0.8fr) 142px;
+  gap: 34px;
+  align-items: start;
+  padding: 34px 0;
+  border-top: 1px solid var(--border);
+  transition: background 180ms var(--ease), border-color 180ms var(--ease);
+}
+.sigrow:last-child { border-bottom: 1px solid var(--border); }
+.sigrow:hover {
+  border-top-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.032);
+}
+
+.sigrow-sig { font-size: 12px; color: var(--text-2); }
+.sigrow-id { display: flex; flex-direction: column; gap: 14px; padding-top: 3px; }
+
+.sigrow-name {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.sigrow-fp { margin-top: 20px; }
+
+.sigrow-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px 26px;
+  margin: 0;
+}
+.sigrow-metrics dt { margin-bottom: 8px; }
+.sigrow-metrics dd { margin: 0; font-size: 15px; }
+
+.sigrow-go { display: flex; justify-content: flex-end; padding-top: 3px; }
+
+/* --- Status and health -------------------------------------- */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  color: var(--text-2);
+}
+.status.is-faded { opacity: 0.6; }
+/* Verdict tone. The glyph inherits it, so one rule colours both. */
+.status.pos { color: var(--pos); }
+.status.neg { color: var(--neg); }
+
+.status-glyph {
+  width: 6px;
+  height: 6px;
+  border: 1px solid currentColor;
+  display: block;
+  flex: none;
+}
+.status-glyph.is-filled { background: var(--text); border-color: var(--text); }
+
+.hb {
+  display: grid;
+  grid-template-columns: 142px 1fr 38px;
+  gap: 14px;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.hb-track {
+  height: 1px;
+  background: #1A1A1A;
+  position: relative;
+  display: block;
+}
+
+.hb-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 1px;
+  background: var(--text);
+  transition: width 700ms var(--ease);
+}
+/* Decay: a high value is bad, so it is drawn dim rather than bright. */
+.hb-fill.is-invert { background: #5A5A5A; }
+/* Only past the threshold does a metric turn into a warning. */
+.hb-fill.is-alarm { background: var(--neg); }
+
+.hb-value { font-size: 13px; color: var(--text-2); text-align: right; }
+.hb-value.neg { color: var(--neg); }
+.hb-crowd { font-size: 13px; color: var(--text); display: flex; align-items: center; }
+.hb-note { margin-left: 14px; white-space: nowrap; }
+
+/* --- Signal detail ------------------------------------------ */
+.sd-id {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 30px;
+}
+
+.sd-sig { font-size: 13px; color: var(--text-2); }
+
+/* One restrained marker. No stamps, no theatre. */
+.proprietary {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  padding: 5px 10px;
+}
+
+.sd-block { padding: 62px 0; }
+
+.sd-thesis {
+  margin: 0;
+  font-size: 23px;
+  line-height: 1.6;
+  letter-spacing: -0.015em;
+  color: var(--text);
+  max-width: 46ch;
+}
+
+.sd-hyp {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 70px;
+  align-items: start;
+  margin-top: 48px;
+  padding-top: 34px;
+  border-top: 1px solid var(--border);
+}
+
+.sd-dir { font-size: 21px; }
+
+.verdict {
+  display: flex;
+  align-items: baseline;
+  gap: 30px;
+  margin-top: 56px;
+  padding-top: 26px;
+  border-top: 1px solid var(--border-strong);
+}
+.verdict-v {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.verdict-v .val-mark { width: 10px; height: 10px; }
+
+.health-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 70px;
+  align-items: start;
+}
+
+.health-status { margin-top: 40px; padding-top: 22px; border-top: 1px solid var(--border); }
+
+.notes,
+.dep {
+  margin-top: 56px;
+  padding-top: 26px;
+  border-top: 1px solid var(--border);
+}
+
+.dep-row {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  font-size: 14px;
+  color: var(--text-2);
+}
+.dep-name { color: var(--text); }
+
+/* --- Data universe ------------------------------------------ */
+.reg-row {
+  grid-template-columns:
+    minmax(0, 1.7fr) minmax(0, 0.75fr) 70px 70px 70px
+    minmax(0, 0.85fr) minmax(0, 0.95fr);
+}
+
+.reg-did { color: var(--text-3); font-size: 12px; margin-right: 12px; }
+
+.reg-quality { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.reg-extracted { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+
+.gaps { padding: 56px 0 0; }
+.gaps-head { margin-bottom: 44px; }
+
+.gap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 1fr) minmax(0, 0.9fr) 150px;
+  gap: 40px;
+  align-items: start;
+  padding: 34px 0;
+  border-top: 1px solid var(--border);
+}
+.gap:last-of-type { border-bottom: 1px solid var(--border); }
+
+.gap-id { font-size: 12px; color: var(--text-3); margin: 0 0 12px; }
+.gap-name { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -0.02em; }
+
+.gap-spec { display: grid; gap: 18px; margin: 0; }
+.gap-spec dt { margin-bottom: 7px; }
+.gap-spec dd { margin: 0; font-size: 14px; }
+
+/* The withheld field is shown as withheld rather than omitted. */
+.gap-hidden { color: var(--text-3); letter-spacing: 0.12em; }
+
+/* Uplift reads its sign: incremental alpha or a drag on the strategy. */
+.uplift-figure.pos { color: var(--pos); }
+.uplift-figure.neg { color: var(--neg); }
+
+.gap-go {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  gap: 14px;
+  padding-top: 2px;
+}
+
+.gap-internal-label { letter-spacing: 0.14em; }
+.gap-internal { color: var(--text-3); max-width: 26ch; margin: 0; font-size: 13px; }
+
+.acq { margin-top: 62px; padding-top: 34px; border-top: 1px solid var(--border-strong); }
+
+.acq-steps { list-style: none; margin: 34px 0 0; padding: 0; max-width: 560px; }
+
+.acq-step {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 18px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 15px;
+  color: var(--text-2);
+}
+.acq-n { color: var(--text-3); font-size: 11px; }
+
+/* --- Runs ---------------------------------------------------- */
+.runs { margin-top: 14px; }
+
+.run { border-top: 1px solid var(--border); }
+.run:last-child { border-bottom: 1px solid var(--border); }
+
+.run-head {
+  display: grid;
+  grid-template-columns:
+    120px 86px 46px minmax(0, 1fr) 76px 60px 38px 72px 102px 106px 22px;
+  gap: 18px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  padding: 18px 0;
+  font-size: 14px;
+  color: var(--text-2);
+  transition: color 160ms var(--ease), background 160ms var(--ease), padding 160ms var(--ease);
+}
+.run-head:hover {
+  color: var(--text);
+  padding-left: 10px;
+  background: rgba(255, 255, 255, 0.032);
+}
+
+.run-id { font-size: 12px; color: var(--text-2); }
+.run-target { color: var(--text); }
+.run-num { text-align: right; color: var(--text); }
+.run-numlabel { color: var(--text-3); }
+.run-universe { color: var(--text-3); }
+.run-status { color: var(--pos); }
+.run-status.is-failed { color: var(--neg); }
+.run-date { text-align: right; }
+.run-caret { text-align: right; color: var(--text-3); font-family: var(--font-mono); }
+
+.run.is-failed .run-id,
+.run.is-failed .run-target { color: var(--text-3); }
+
+.run-body {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.7fr) minmax(0, 1.3fr);
+  gap: 60px;
+  padding: 12px 0 44px;
+  animation: fade-in 300ms var(--ease) both;
+}
+
+.run-fstep {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.run-fv { min-width: 72px; text-align: right; color: var(--text); font-size: 16px; }
+
+.run-fbar {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--text);
+  opacity: 0.5;
+}
+
+.run-note { max-width: 60ch; margin: 0 0 30px; }
+.run-produced { margin-bottom: 40px; }
+
+.rel { width: 100%; }
+
+/* --- Chart key ----------------------------------------------- */
+.chart-key {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+
+.chart-key-items { display: flex; gap: 22px; }
+
+.chart-key-item { display: inline-flex; align-items: center; gap: 9px; }
+.chart-key-item.pos { color: var(--pos); }
+.chart-key-item.neg { color: var(--neg); }
+
+.chart-key-rule {
+  width: 16px;
+  height: 2px;
+  background: currentColor;
+  display: block;
+}
+
+.chart-note { margin-top: 26px; max-width: 66ch; }
+
+/* --- Responsive ---------------------------------------------- */
+@media (max-width: 1180px) {
+  .sigrow {
+    grid-template-columns: 132px minmax(0, 1.4fr) minmax(270px, 1fr);
+    gap: 26px 30px;
+  }
+  .sigrow-health { grid-column: 2 / -1; }
+  .sigrow-go { grid-column: 2 / -1; justify-content: flex-start; }
+}
+
+@media (max-width: 1080px) {
+  .sd-hyp,
+  .health-grid { grid-template-columns: 1fr; gap: 44px; }
+  .gap { grid-template-columns: 1fr; gap: 26px; }
+  .gap-go { align-items: flex-start; text-align: left; }
+  .gap-internal { max-width: 52ch; }
+  .run-body { grid-template-columns: 1fr; gap: 40px; }
+  .run-head { grid-template-columns: 112px 78px 1fr 66px 88px 22px; gap: 12px; }
+  .run-universe,
+  .run-numlabel,
+  .run-date { display: none; }
+  .inv-stats { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 860px) {
+  .gate-foot { margin-top: 60px; }
+  .cfg-row { grid-template-columns: 1fr; gap: 14px; }
+  .sigrow { grid-template-columns: 1fr; gap: 22px; }
+  .sigrow-id { flex-direction: row; align-items: center; gap: 18px; }
+  .inv-stats { grid-template-columns: repeat(2, 1fr); }
+  .nav-signout { display: none; }
+  .hb { grid-template-columns: 118px 1fr 34px; gap: 10px; }
+}
+
+@media (max-width: 560px) {
+  .nav-mark-env { display: none; }
+  .nav-owner { font-size: 9.5px; letter-spacing: 0.06em; }
+
+  /* Run rows drop to two lines rather than scrolling the page sideways. */
+  .run-head {
+    grid-template-columns: 1fr auto auto;
+    grid-auto-rows: min-content;
+    gap: 8px 12px;
+    padding: 16px 0;
+  }
+  .run-id { grid-column: 1; }
+  .run-target { grid-column: 2; text-align: right; }
+  .run-caret { grid-column: 3; }
+  .run-head > .meta:not(.run-status) { display: none; }
+  .run-num { grid-column: 1; text-align: left; font-size: 13px; }
+  .run-num + .meta { display: none; }
+  .run-status { grid-column: 2 / span 2; text-align: right; }
+  .inv-stats { grid-template-columns: 1fr; }
+  .sigrow-metrics { grid-template-columns: 1fr; }
+  .gate-field { flex-direction: column; align-items: stretch; }
+  .gate { padding: 20px 14px; }
+  .gate-inner { padding: 34px 24px; }
+  .cfg { padding: 6px 18px 24px; }
+  .ld { padding: 22px 18px; }
+}
+
+/* --- Funnel lanes: hover readout ----------------------------- */
+.funnel-trace { position: relative; }
+
+.funnel-note { margin-top: 30px; line-height: 1.7; max-width: 62ch; }
+
+.lane:hover .lane-hit { fill: rgba(255, 255, 255, 0.02); }
+
+/* Anchored to the lane, deliberately narrow so it never covers the
+   diagram it is describing. */
+.lane-tip {
+  position: absolute;
+  right: 0;
+  width: 286px;
+  padding: 16px 18px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.48), inset 0 1px rgba(255, 255, 255, 0.04);
+  pointer-events: none;
+  z-index: 5;
+  animation: fade-in 120ms var(--ease) both;
+}
+
+.lane-tip-id { color: var(--text-3); }
+
+.lane-tip-name {
+  margin: 10px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.lane-tip-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+  margin: 16px 0 0;
+}
+.lane-tip-grid dt { margin-bottom: 5px; }
+.lane-tip-grid dd { margin: 0; font-size: 13px; color: var(--text-2); }
+
+.lane-tip-verdict {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.lane-tip-verdict.pos { color: var(--pos); }
+.lane-tip-verdict.neg { color: var(--neg); }
+
+.lane-tip-hint { margin-top: 10px; }
+
+/* --- Lane dashboard ------------------------------------------ */
+.ld {
+  margin: 10px 0 40px;
+  padding: 30px;
+  border: 1px solid var(--border);
+  border-top-color: var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.035);
+  animation: fade-in 240ms var(--ease) both;
+}
+
+.ld-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 30px;
+  flex-wrap: wrap;
+}
+
+.ld-id {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.ld-lane { font-size: 12px; color: var(--text-2); }
+
+.ld-name {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.ld-close {
+  color: var(--text-3);
+  white-space: nowrap;
+  transition: color 160ms var(--ease);
+}
+.ld-close:hover { color: var(--text); }
+
+.ld-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 56px;
+  align-items: start;
+  padding: 34px 0;
+  margin-top: 26px;
+  border-top: 1px solid var(--border);
+}
+
+.ld-label { margin-bottom: 20px; }
+
+.ld-quality { margin-top: 24px; }
+
+.ld-lagline { margin-top: 18px; }
+
+.ld-metrics { display: grid; gap: 20px; }
+.ld-v { margin: 8px 0 0; font-size: 21px; font-weight: 500; color: var(--text); }
+
+.ld-fp { margin-top: 28px; }
+
+.ld-charts {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(240px, 0.9fr);
+  gap: 56px;
+  padding: 8px 0 34px;
+  border-top: 1px solid var(--border);
+  padding-top: 34px;
+}
+
+.ld-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  flex-wrap: wrap;
+  padding-top: 26px;
+  border-top: 1px solid var(--border);
+}
+
+.ld-reason { margin-top: 12px; max-width: 56ch; }
+.ld-kept { white-space: nowrap; }
+
+@media (max-width: 1080px) {
+  .ld-body { grid-template-columns: 1fr; gap: 40px; }
+  .ld-charts { grid-template-columns: 1fr; gap: 40px; }
+  .lane-tip { position: static; width: auto; margin-top: 20px; }
+}
+
+@media (max-width: 560px) {
+  .ld { padding: 22px 18px; }
+}

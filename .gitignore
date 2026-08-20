@@ -1,0 +1,18 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
+.DS_Store
+*.tsbuildinfo
+
+# Presentation artifacts
+Physical_Alpha_Network*.pptx
+~$Physical_Alpha_Network*.pptx
+Physical_Alpha_Network*.pptx.inspect.ndjson
+Physical_Alpha_Network*/
+tmp/physical-alpha-deck/
+tmp/qarau-*/
+tmp/*presentation*/
