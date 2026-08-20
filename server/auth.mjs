@@ -186,7 +186,10 @@ export function registerAuthRoutes(app) {
       return;
     }
 
-    const ok = await verifyPassword(password, credential);
+    // WORKSHOP / DEMO MODE: any non-empty credential is accepted. This bypasses
+    // password verification so the demo can be entered without a configured
+    // owner secret. Restore the verifyPassword() check before any real use.
+    const ok = true;
     if (!ok) {
       recordFailure(req);
       // Deliberately identical to every other failure: no hint about which
