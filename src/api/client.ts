@@ -19,6 +19,14 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The research API runs on its own host (Fly), separate from wherever this
+ * bundle is served from. Every request below is therefore cross-origin, which
+ * is why the session cookie needs credentials: "include" rather than
+ * "same-origin", and why the server sends SameSite=None + CORS.
+ */
+const API_BASE = "https://server-sparkling-hillside-7767.fly.dev";
+
 /** Notified whenever the server rejects a request as unauthenticated. */
 type Listener = () => void;
 const unauthorizedListeners = new Set<Listener>();
@@ -33,9 +41,10 @@ export function onUnauthorized(fn: Listener) {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
-    // The session is an httpOnly cookie; it has to be sent explicitly.
-    credentials: "same-origin",
+  const res = await fetch(`${API_BASE}${path}`, {
+    // The session is an httpOnly cookie; it has to be sent explicitly, and
+    // "include" is what carries it to another origin.
+    credentials: "include",
     headers: init?.body ? { "Content-Type": "application/json" } : undefined,
     ...init,
   });
