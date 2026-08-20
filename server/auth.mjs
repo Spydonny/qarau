@@ -126,8 +126,11 @@ function readCookie(req, name) {
 function setSessionCookie(res, token) {
   res.cookie(COOKIE, token, {
     httpOnly: true, // never readable from page scripts
-    sameSite: "strict", // no cross-site submission carries it
-    secure: process.env.NODE_ENV === "production",
+    // The interface is served from a different origin than this API, so the
+    // cookie has to be allowed cross-site. Browsers only accept None together
+    // with Secure, which is why this is no longer tied to NODE_ENV.
+    sameSite: "none",
+    secure: true,
     path: "/",
     maxAge: ABSOLUTE_MS,
   });
@@ -206,7 +209,8 @@ export function registerAuthRoutes(app) {
   app.post("/api/auth/logout", (req, res) => {
     const found = readSession(req);
     if (found) sessions.delete(found.token);
-    res.clearCookie(COOKIE, { path: "/" });
+    // Attributes have to match the ones it was set with or it is not cleared.
+    res.clearCookie(COOKIE, { path: "/", sameSite: "none", secure: true });
     res.json({ ok: true });
   });
 

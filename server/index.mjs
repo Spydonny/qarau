@@ -27,6 +27,32 @@ app.disable("x-powered-by");
 app.set("trust proxy", 1);
 app.use(express.json({ limit: "16kb" }));
 
+/**
+ * The interface is hosted separately, so every call arrives cross-origin and
+ * carries the session cookie. Credentialed requests cannot be answered with a
+ * wildcard, so the caller's own origin is echoed back.
+ *
+ * ALLOWED_ORIGIN pins this to one front end; unset, any origin is accepted,
+ * which is fine only because this deployment is a demo.
+ */
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const allowed = process.env.ALLOWED_ORIGIN;
+  if (origin && (!allowed || origin === allowed)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    res.setHeader("Vary", "Origin");
+  }
+  // A JSON body makes the browser preflight; answer it before anything else.
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+  next();
+});
+
 app.use((_req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
