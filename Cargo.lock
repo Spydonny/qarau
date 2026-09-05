@@ -708,6 +708,7 @@ name = "qarau-registry"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "serde_json",
  "sha2 0.10.9",
 ]
 

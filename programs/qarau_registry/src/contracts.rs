@@ -2,6 +2,7 @@ use sha2::{Digest, Sha256};
 
 pub const DATASET_ID_DOMAIN: &[u8] = b"QARAU_DATASET_ID_V1\0";
 pub const ACCESS_POLICY_DOMAIN: &[u8] = b"QARAU_ACCESS_POLICY_V1\0";
+pub const ANALYSIS_MANIFEST_DOMAIN: &[u8] = b"QARAU_ANALYSIS_MANIFEST_V1\0";
 
 pub const REGISTRY_SPACE: usize = 76;
 pub const DATASET_COMMITMENT_SPACE: usize = 271;
@@ -41,9 +42,22 @@ mod tests {
 
     #[test]
     fn matches_node_access_policy_hash_fixture() {
+        let policy: serde_json::Value = serde_json::from_slice(include_bytes!("../../../contracts/fixtures/access-policy-v1.json")).unwrap();
+        let canonical = serde_json::to_vec(&policy).unwrap();
+        assert_eq!(canonical, ACCESS_POLICY_CANONICAL.as_bytes());
         assert_eq!(
-            domain_hash(ACCESS_POLICY_DOMAIN, ACCESS_POLICY_CANONICAL.as_bytes()),
+            domain_hash(ACCESS_POLICY_DOMAIN, &canonical),
             [95, 80, 129, 208, 156, 166, 50, 81, 227, 237, 92, 143, 228, 102, 235, 241, 20, 0, 20, 63, 51, 114, 191, 42, 23, 138, 147, 2, 15, 116, 111, 206]
+        );
+    }
+
+    #[test]
+    fn matches_node_analysis_manifest_hash_fixture() {
+        let manifest: serde_json::Value = serde_json::from_slice(include_bytes!("../../../contracts/fixtures/analysis-manifest-v1.json")).unwrap();
+        let canonical = serde_json::to_vec(&manifest).unwrap();
+        assert_eq!(
+            domain_hash(ANALYSIS_MANIFEST_DOMAIN, &canonical),
+            [66, 50, 51, 128, 207, 137, 82, 139, 18, 242, 83, 163, 113, 58, 31, 251, 159, 57, 10, 206, 173, 122, 103, 119, 95, 172, 100, 255, 118, 19, 14, 31]
         );
     }
 

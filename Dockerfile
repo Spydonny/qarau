@@ -10,9 +10,9 @@ ENV NODE_ENV=production API_PORT=8787
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/server ./server
-RUN mkdir -p /app/server/data/private && chown -R node:node /app
+COPY --chown=node:node --from=build /app/dist ./dist
+COPY --chown=node:node --from=build /app/server ./server
+RUN mkdir -p /app/server/data/private && chown node:node /app/server/data/private
 USER node
 EXPOSE 8787
 CMD ["npm", "start"]

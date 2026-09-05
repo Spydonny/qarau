@@ -54,3 +54,25 @@ test("vertical tracer contains only production authorities and all tier/version 
   assert.equal(JSON.stringify(tracer).includes("mock"), false);
   assert.ok(tracer.stages.every(({ work_item, state }) => /^INT-\d{3}$/.test(work_item) && state === "pending"));
 });
+
+test("API contract separates public, wallet, owner, and finalized-grant boundaries", async () => {
+  const contract = JSON.parse(await readFile(new URL("../../contracts/api-v1.json", import.meta.url), "utf8"));
+  const key = ({ method, path }) => `${method} ${path}`;
+  const endpoints = new Map(contract.endpoints.map((endpoint) => [key(endpoint), endpoint]));
+  assert.equal(endpoints.get("GET /marketplace").security, "public");
+  assert.equal(endpoints.get("POST /discovery/jobs").security, "owner");
+  assert.equal(endpoints.get("POST /sales/{salePda}/purchase-transaction").security, "wallet");
+  for (const role of ["metadata", "report", "data", "export"]) {
+    assert.equal(endpoints.get(`GET /dataset/{packageId}/${role}`).security, "wallet_finalized_grant");
+  }
+  assert.deepEqual(contract.schemas.PurchaseTransactionRequest.forbidden, ["buyer", "amount", "treasury", "grant_pda", "program_id"]);
+  assert.ok(contract.schemas.ProtectedArtifact.forbidden.includes("signed_url"));
+});
+
+test("evidence bundle schema freezes exactly twenty live-demo steps", async () => {
+  const schema = JSON.parse(await readFile(new URL("../../contracts/schemas/evidence-bundle-v1.schema.json", import.meta.url), "utf8"));
+  assert.equal(schema.properties.steps.minItems, 20);
+  assert.equal(schema.properties.steps.maxItems, 20);
+  assert.equal(schema.properties.steps.items.properties.number.maximum, 20);
+  assert.equal(schema.properties.steps.items.additionalProperties, false);
+});

@@ -89,6 +89,24 @@
 .nav-link:hover::after { transform: scaleX(0.38); }
 .nav-link.is-active::after { transform: scaleX(1); }
 
+/* Public catalog is a separate shell: it has no owner navigation or controls. */
+.marketplace { min-height: 100%; background: var(--bg); }
+.market-nav { border-bottom: 1px solid var(--border); background: var(--surface-1); }
+.market-nav-inner { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 22px; }
+.market-brand { display: inline-flex; align-items: center; gap: 14px; }
+.market-brand img { display: block; width: 142px; height: auto; }
+.market-network { display: inline-flex; align-items: center; gap: 9px; }
+.market-main { padding-top: clamp(56px, 9vw, 128px); padding-bottom: 110px; }
+.market-hero { max-width: 820px; padding-bottom: 68px; border-bottom: 1px solid var(--border-strong); }
+.market-hero .display-sm { margin-top: 18px; max-width: 15ch; }
+.market-lead { margin-top: 30px; max-width: 58ch; }
+.market-state { display: grid; grid-template-columns: minmax(240px, .9fr) minmax(0, 1.1fr); gap: 64px; align-items: start; padding: 42px 0; border-bottom: 1px solid var(--border); }
+.market-state .h2 { margin-top: 12px; }
+.market-state .body-sm { max-width: 50ch; }
+.market-trust { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; padding-top: 42px; }
+.market-trust > div { padding-top: 16px; border-top: 1px solid var(--border); }
+.market-trust p:last-child { margin: 14px 0 0; max-width: 28ch; color: var(--text-2); font-size: 14px; line-height: 1.6; }
+
 /* ============================================================
    PAGE SCAFFOLD
    ============================================================ */
@@ -744,6 +762,8 @@ a.sig-trow:hover {
 }
 
 @media (max-width: 560px) {
+  .market-state, .market-trust { grid-template-columns: 1fr; gap: 26px; }
+  .market-brand .meta { display: none; }
   .nav-links { gap: 13px; margin-right: 11px; }
   .nav-link { font-size: 9.5px; letter-spacing: 0.06em; white-space: nowrap; }
   .nav-inner { gap: 10px; }

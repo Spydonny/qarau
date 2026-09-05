@@ -9,6 +9,7 @@ import { SignalDetail } from "./pages/SignalDetail";
 import { Data } from "./pages/Data";
 import { Runs } from "./pages/Runs";
 import { SourceDetail } from "./pages/SourceDetail";
+import { Marketplace } from "./pages/Marketplace";
 import qarauLockup from "./assets/qarau/primary-lockup-on-dark.png";
 
 /** Route changes should land at the top of the new page. */
@@ -24,6 +25,13 @@ function ScrollToTop() {
 
 export default function App() {
   const { state } = useSession();
+  const { pathname } = useLocation();
+  const isPublicRoute = pathname === "/marketplace" || pathname.startsWith("/marketplace/");
+
+  // The marketplace never waits for, reads, or infers an owner session.
+  if (isPublicRoute) {
+    return <><ScrollToTop /><Routes><Route path="/marketplace/*" element={<Marketplace />} /></Routes></>;
+  }
 
   if (state.status === "checking") {
     return (

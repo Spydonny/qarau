@@ -61,7 +61,16 @@ export async function resolvePublicAddress(url) {
   return answers[0].address;
 }
 
-export async function requestExternalText(input, { maxBytes = 512_000, timeoutMs = 8_000, method = "GET", body, headers = {} } = {}) {
+export function safeResponseHeaders(headers = {}) {
+  const allowed = new Set(["content-type", "content-length", "etag", "last-modified", "cache-control"]);
+  return Object.fromEntries(Object.entries(headers).flatMap(([name, value]) => {
+    const normalized = name.toLowerCase();
+    if (!allowed.has(normalized) || value === undefined) return [];
+    return [[normalized, Array.isArray(value) ? value.join(", ") : String(value).slice(0, 1_024)]];
+  }));
+}
+
+export async function requestExternalBytes(input, { maxBytes = 512_000, timeoutMs = 8_000, method = "GET", body, headers = {} } = {}) {
   const url = validateExternalUrl(input);
   const address = await resolvePublicAddress(url);
   const request = url.protocol === "https:" ? httpsRequest : httpRequest;
@@ -85,9 +94,15 @@ export async function requestExternalText(input, { maxBytes = 512_000, timeoutMs
         return;
       }
       const type = String(res.headers["content-type"] ?? "");
+      const contentLength = Number(res.headers["content-length"] ?? 0);
       if ((res.statusCode ?? 500) >= 400 || !ALLOWED_CONTENT_TYPES.test(type)) {
         res.resume();
         reject(new Error("unsupported_response"));
+        return;
+      }
+      if (!Number.isSafeInteger(contentLength) || contentLength < 0 || contentLength > maxBytes) {
+        res.resume();
+        reject(new Error("response_too_large"));
         return;
       }
       const chunks = [];
@@ -97,12 +112,17 @@ export async function requestExternalText(input, { maxBytes = 512_000, timeoutMs
         if (size > maxBytes) req.destroy(new Error("response_too_large"));
         else chunks.push(chunk);
       });
-      res.on("end", () => resolve({ url: url.toString(), contentType: type, text: Buffer.concat(chunks).toString("utf8") }));
+      res.on("end", () => resolve({ url: url.toString(), contentType: type, headers: safeResponseHeaders(res.headers), bytes: Buffer.concat(chunks) }));
     });
     req.on("error", reject);
     req.setTimeout(timeoutMs, () => req.destroy(new Error("fetch_timeout")));
     req.end(payload);
   });
+}
+
+export async function requestExternalText(input, options = {}) {
+  const response = await requestExternalBytes(input, options);
+  return { ...response, text: response.bytes.toString("utf8") };
 }
 
 export function fetchExternalText(input, options = {}) {

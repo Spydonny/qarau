@@ -10,6 +10,7 @@ const integrated = {
   S3_BUCKET: "qarau-private",
   S3_ACCESS_KEY_ID: "qarau-api",
   S3_SECRET_ACCESS_KEY: "local-secret",
+  SOURCE_URL_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   WALLET_SESSION_SECRET: "0123456789abcdef0123456789abcdef",
   SOLANA_RPC_URL: "https://api.devnet.solana.com",
   SOLANA_PROGRAM_ID: "5n92bg5CrZrt956eXmakgAiqesbfFav7mdNqsfk8Ex3u",
@@ -35,7 +36,9 @@ test("API legacy mode remains available during strangler migration", () => {
 
 test("integrated services fail closed on missing credentials and Mainnet RPC", () => {
   assert.throws(() => loadServiceConfig("worker-analysis", { QARAU_RUNTIME_MODE: "integrated" }));
-  assert.throws(() => loadServiceConfig("api", { ...integrated, SOLANA_RPC_URL: "https://api.mainnet-beta.solana.com" }), /MVP supports only/);
+  const apiEnvironment = { ...integrated, SOLANA_RPC_URL: "https://api.mainnet-beta.solana.com" };
+  delete apiEnvironment.SOLANA_PUBLISHER_KEY_PATH;
+  assert.throws(() => loadServiceConfig("api", apiEnvironment), /MVP supports only/);
 });
 
 test("publisher key material is rejected outside the signer", () => {
