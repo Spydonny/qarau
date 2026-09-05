@@ -8,6 +8,7 @@ import { Signals } from "./pages/Signals";
 import { SignalDetail } from "./pages/SignalDetail";
 import { Data } from "./pages/Data";
 import { Runs } from "./pages/Runs";
+import { SourceDetail } from "./pages/SourceDetail";
 import qarauLockup from "./assets/qarau/primary-lockup-on-dark.png";
 
 /** Route changes should land at the top of the new page. */
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="/signals" element={<Signals />} />
           <Route path="/signals/:id" element={<SignalDetail />} />
           <Route path="/data" element={<Data />} />
+          <Route path="/sources/:id" element={<SourceDetail />} />
           <Route path="/runs" element={<Runs />} />
           <Route path="*" element={<Navigate to="/discovery" replace />} />
         </Routes>

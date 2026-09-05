@@ -17,6 +17,7 @@ export type Session = {
   owner: { id: string };
   environment: string;
   issuedAt?: string;
+  csrfToken?: string;
 };
 
 export type SignalSummary = {
@@ -26,14 +27,14 @@ export type SignalSummary = {
   target: string;
   bestLag: number;
   oosPassed: boolean;
-  sharpeBefore: number;
-  sharpeAfter: number;
+  baselineR2: number;
+  augmentedR2: number;
   stability: number;
-  decay: number;
-  crowding: Crowding;
-  lastValidatedHoursAgo: number;
-  ic: number;
-  seed: number;
+  evidenceScore: number;
+  sampleSize: number;
+  correlation: number;
+  warnings: string[];
+  createdAt: string;
 };
 
 export type InventoryStats = {
@@ -70,26 +71,6 @@ export type Dataset = {
   linkedSignalIds: string[];
 };
 
-export type SignalDetail = SignalSummary & {
-  datasetId: string;
-  targetName: string;
-  direction: "POSITIVE" | "NEGATIVE";
-  validationWindow: string;
-  thesis: string;
-  hypothesis: string;
-  oosIc: number;
-  returnBefore: number;
-  returnAfter: number;
-  ddBefore: number;
-  ddAfter: number;
-  health: Health;
-  created: string;
-  notes: string;
-  regimes: { label: string; ic: number; held: boolean }[];
-  dataset: Dataset | null;
-  runs: { id: string; date: string; horizon: string }[];
-};
-
 export type RunFunnel = {
   datasets: number;
   features: number;
@@ -113,6 +94,14 @@ export type Run = {
   rejected: { name: string; reason: string; stage: string }[];
   note?: string;
   requestedAt?: string;
+  catalog?: {
+    newSources: number;
+    totalRegistry: number;
+    sourcesInScope: number;
+    snapshotsReady: number;
+    featuresReady: number;
+    matchingTests: number;
+  };
 };
 
 export type Gap = {
@@ -165,3 +154,95 @@ export type RunLanes = {
   tested: number;
   lanes: Lane[];
 };
+
+export type QarauSource = {
+  id: string;
+  publicId: string;
+  name: string;
+  provider: string;
+  sourceType: string;
+  category: string;
+  industry: string;
+  region: string;
+  measurementDescription: string;
+  spatialResolution: string;
+  temporalResolution: string;
+  updateFrequency: string;
+  latency: string;
+  historicalDepth: number;
+  pricingType: string;
+  accessType: string;
+  licenseSummary: string;
+  dataFormats: string[];
+  apiAvailable: boolean;
+  historicalDataAvailable: boolean;
+  status: string;
+  discoveryProvider: string;
+  discoveredAt: string;
+  scores: { quality: number; testability: number; economicRelevance: number; novelty: number; candidate: number };
+  dataset: { snapshotId: string; rows: number; digest: string; createdAt: string; provider: string; retrievedAt: string; unit: string | null; quality: { warnings: string[]; medianIntervalMs: number; impossibleJumps: number; repeatedValueRatio: number } } | null;
+  analysis: unknown;
+  commitmentStatus: string;
+  sensitivityMode: "PUBLIC_SOURCE" | "PRIVATE_SOURCE" | "HIGHLY_SENSITIVE_SOURCE";
+  verificationStatus: "UNCLAIMED" | "PENDING_VERIFICATION" | "VERIFIED" | "REJECTED";
+};
+
+export type AlphaTest = {
+  id: string;
+  target: string;
+  bestLag: number;
+  sampleSize: number;
+  evidenceScore: number;
+  deltaR2: number;
+  warnings: string[];
+  baseline: { r2: number; mae: number; directionalAccuracy: number };
+  augmented: { r2: number; mae: number; directionalAccuracy: number };
+  correlationByLag: { lag: number; pearson: number; spearman: number; sampleSize: number }[];
+  mutualInformation: number;
+  crossCorrelation: number;
+  stabilityAcrossFolds: number;
+  folds: { fold: number; trainSize: number; testSize: number; deltaR2: number }[];
+  commitmentStatus: string;
+  sourceSnapshotId?: string;
+  targetSnapshotId?: string;
+  targetProvider?: string;
+  horizon?: number;
+  createdAt?: string;
+};
+
+export type SignalDetail = {
+  test: AlphaTest;
+  source: QarauSource;
+  analysis: QarauSourceDetail["analysis"];
+};
+
+export type QarauSourceDetail = {
+  source: QarauSource;
+  privateMetadata: { summary: string; url: string };
+  analysis: { phenomenon: string; industries: string[]; assetClasses: string[]; candidateTargets: string[]; causalHypotheses: string[]; potentialCausalChain: string[]; confounders: string[]; leakageRisks: string[]; informationAdvantage: string; additionalDataRequired: string[]; suggestedLagRange: number[]; confidence: number; tags: string[]; conclusion: string; disclosure: string; model: string } | null;
+  tests: AlphaTest[];
+  commitments: { id: string; kind: string; status: string; epoch: string | null; root: string | null; signature?: string | null }[];
+  claims: { id: string; method: string; status: string; challenge: string; createdAt: string; expiresAt: string; verifiedAt: string | null }[];
+  accessReceipts: { id: string; purpose: string; hash: string; createdAt: string; status: string }[];
+};
+
+export type QarauTarget = { symbol: string; provider: string; name: string; configured: boolean };
+export type QarauProvider = { key: string; provider: string; name: string; category: string; region: string; description: string; documentationUrl: string };
+export type QarauOptions = {
+  categories: string[];
+  industries: string[];
+  geographies: string[];
+  sourceTypes: string[];
+  temporalResolutions: string[];
+  updateFrequencies: string[];
+  pricingTypes: string[];
+  targets: QarauTarget[];
+  providers: QarauProvider[];
+  discoveryProviders: { id: string; configured: boolean }[];
+  scoreWeights: Record<string, number>;
+  analyzer: { provider: string; configured: boolean; externalEnabled: boolean };
+};
+
+export type QarauJob = { id: string; kind: string; resourceId: string; status: "QUEUED" | "RUNNING" | "COMPLETE" | "FAILED"; progress: number; error: string | null; result: { sourceId?: string; snapshotId?: string; testId?: string } | null };
+
+export type QarauFilters = Partial<Record<"q" | "category" | "industry" | "geography" | "sourceType" | "temporalResolution" | "updateFrequency" | "pricingType" | "apiAvailable" | "historicalDataAvailable" | "tested" | "committed" | "minHistoricalDepth" | "minQuality" | "minEconomicRelevance" | "minNovelty" | "minTestability" | "minCandidate" | "sort" | "page" | "pageSize", string>>;

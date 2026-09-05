@@ -1,0 +1,5 @@
+[      90ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=968aee0f:14333
+[   31333ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/components/LaneDashboard.tsx?t=1788279434855:0
+[   31335ms] [ERROR] [vite] Failed to reload /src/components/LaneDashboard.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:528
+[   31344ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/lib/series.ts?t=1788279434856:0
+[   31344ms] [ERROR] [vite] Failed to reload /src/components/primitives.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:528

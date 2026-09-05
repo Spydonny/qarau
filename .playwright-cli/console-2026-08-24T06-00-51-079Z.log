@@ -1,0 +1,8 @@
+[     668ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=6593b4d0:14333
+[    8130ms] [ERROR] Access to fetch at 'https://server-sparkling-hillside-7767.fly.dev/api/auth/session' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5173/:0
+[    8131ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://server-sparkling-hillside-7767.fly.dev/api/auth/session:0
+[    8213ms] [ERROR] Access to fetch at 'https://server-sparkling-hillside-7767.fly.dev/api/auth/session' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5173/:0
+[    8213ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://server-sparkling-hillside-7767.fly.dev/api/auth/session:0
+[    8398ms] [VERBOSE] [DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5173/:0
+[  107355ms] [ERROR] Access to fetch at 'https://server-sparkling-hillside-7767.fly.dev/api/auth/login' from origin 'http://localhost:5173' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5173/:0
+[  107355ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://server-sparkling-hillside-7767.fly.dev/api/auth/login:0

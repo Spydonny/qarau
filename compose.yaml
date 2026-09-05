@@ -1,0 +1,179 @@
+x-app: &app
+  build: .
+  image: qarau-runtime:local
+  restart: unless-stopped
+  networks: [private]
+
+x-integrated: &integrated
+  QARAU_RUNTIME_MODE: integrated
+  NODE_ENV: production
+
+services:
+  postgres:
+    image: postgres:17.6-bookworm
+    environment:
+      POSTGRES_DB: qarau
+      POSTGRES_USER: qarau_owner
+      POSTGRES_PASSWORD: qarau-owner-local-only
+    volumes:
+      - qarau-postgres:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qarau_owner -d qarau"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [private]
+
+  object-storage:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: qarau-root-local
+      MINIO_ROOT_PASSWORD: qarau-root-secret-local-only
+    volumes:
+      - qarau-objects:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [private]
+
+  object-storage-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on:
+      object-storage:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: qarau-root-local
+      MINIO_ROOT_PASSWORD: qarau-root-secret-local-only
+      QARAU_API_S3_ACCESS_KEY: qarau-api-local
+      QARAU_API_S3_SECRET_KEY: qarau-api-secret-local
+      QARAU_WORKER_S3_ACCESS_KEY: qarau-worker-local
+      QARAU_WORKER_S3_SECRET_KEY: qarau-worker-secret-local
+      QARAU_CHAIN_S3_ACCESS_KEY: qarau-chain-local
+      QARAU_CHAIN_S3_SECRET_KEY: qarau-chain-secret-local
+    volumes:
+      - ./infra/minio/init.sh:/init.sh:ro
+    entrypoint: ["/bin/sh", "/init.sh"]
+    restart: "no"
+    networks: [private]
+
+  api:
+    <<: *app
+    command: ["npm", "run", "start:api"]
+    environment:
+      <<: *integrated
+      API_PORT: 8787
+      DATABASE_URL: postgresql://qarau_api:qarau-api-local-only@postgres:5432/qarau
+      S3_ENDPOINT: http://object-storage:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: qarau-private
+      S3_ACCESS_KEY_ID: qarau-api-local
+      S3_SECRET_ACCESS_KEY: qarau-api-secret-local
+      WALLET_SESSION_SECRET: ${WALLET_SESSION_SECRET:-local-wallet-session-secret-change-me}
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.devnet.solana.com}
+      SOLANA_PROGRAM_ID: ${SOLANA_PROGRAM_ID:-5n92bg5CrZrt956eXmakgAiqesbfFav7mdNqsfk8Ex3u}
+      OWNER_PASSWORD_HASH: ${OWNER_PASSWORD_HASH:-}
+      OWNER_ID: ${OWNER_ID:-01}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      object-storage-init:
+        condition: service_completed_successfully
+    ports: ["8787:8787"]
+    volumes:
+      - qarau-legacy-private:/app/server/data/private
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/health').then(r=>{if(!r.ok)process.exit(1)})"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  worker-discovery:
+    <<: *app
+    command: ["npm", "run", "start:worker:discovery"]
+    environment:
+      <<: *integrated
+      DATABASE_URL: postgresql://qarau_worker:qarau-worker-local-only@postgres:5432/qarau
+      SERVICE_HEALTH_PORT: 8791
+    depends_on: { postgres: { condition: service_healthy } }
+
+  worker-scrape:
+    <<: *app
+    command: ["npm", "run", "start:worker:scrape"]
+    environment:
+      <<: *integrated
+      DATABASE_URL: postgresql://qarau_worker:qarau-worker-local-only@postgres:5432/qarau
+      S3_ENDPOINT: http://object-storage:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: qarau-private
+      S3_ACCESS_KEY_ID: qarau-worker-local
+      S3_SECRET_ACCESS_KEY: qarau-worker-secret-local
+      SERVICE_HEALTH_PORT: 8792
+    depends_on: { postgres: { condition: service_healthy }, object-storage-init: { condition: service_completed_successfully } }
+
+  worker-analysis:
+    <<: *app
+    command: ["npm", "run", "start:worker:analysis"]
+    environment:
+      <<: *integrated
+      DATABASE_URL: postgresql://qarau_worker:qarau-worker-local-only@postgres:5432/qarau
+      S3_ENDPOINT: http://object-storage:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: qarau-private
+      S3_ACCESS_KEY_ID: qarau-worker-local
+      S3_SECRET_ACCESS_KEY: qarau-worker-secret-local
+      SERVICE_HEALTH_PORT: 8793
+    depends_on: { postgres: { condition: service_healthy }, object-storage-init: { condition: service_completed_successfully } }
+
+  worker-chain:
+    <<: *app
+    command: ["npm", "run", "start:worker:chain"]
+    environment:
+      <<: *integrated
+      DATABASE_URL: postgresql://qarau_chain:qarau-chain-local-only@postgres:5432/qarau
+      S3_ENDPOINT: http://object-storage:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: qarau-private
+      S3_ACCESS_KEY_ID: qarau-chain-local
+      S3_SECRET_ACCESS_KEY: qarau-chain-secret-local
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.devnet.solana.com}
+      SOLANA_PROGRAM_ID: ${SOLANA_PROGRAM_ID:-5n92bg5CrZrt956eXmakgAiqesbfFav7mdNqsfk8Ex3u}
+      PUBLISHER_SIGNER_URL: http://publisher-signer:8796
+      PUBLISHER_SIGNER_TOKEN: ${PUBLISHER_SIGNER_TOKEN:-local-publisher-token-change-me}
+      SERVICE_HEALTH_PORT: 8794
+    depends_on: { postgres: { condition: service_healthy }, object-storage-init: { condition: service_completed_successfully }, publisher-signer: { condition: service_started } }
+
+  scheduler:
+    <<: *app
+    command: ["npm", "run", "start:scheduler"]
+    environment:
+      <<: *integrated
+      DATABASE_URL: postgresql://qarau_worker:qarau-worker-local-only@postgres:5432/qarau
+      SERVICE_HEALTH_PORT: 8795
+    depends_on: { postgres: { condition: service_healthy } }
+
+  publisher-signer:
+    <<: *app
+    command: ["npm", "run", "start:publisher-signer"]
+    environment:
+      <<: *integrated
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.devnet.solana.com}
+      SOLANA_PROGRAM_ID: ${SOLANA_PROGRAM_ID:-5n92bg5CrZrt956eXmakgAiqesbfFav7mdNqsfk8Ex3u}
+      PUBLISHER_SIGNER_TOKEN: ${PUBLISHER_SIGNER_TOKEN:-local-publisher-token-change-me}
+      SOLANA_PUBLISHER_KEY_PATH: /run/qarau-signer/publisher.json
+      SERVICE_HEALTH_PORT: 8796
+    volumes:
+      - qarau-signer:/run/qarau-signer
+
+networks:
+  private:
+    internal: true
+
+volumes:
+  qarau-postgres:
+  qarau-objects:
+  qarau-legacy-private:
+  qarau-signer:

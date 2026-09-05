@@ -1,0 +1,104 @@
+- generic [ref=f2e2]:
+  - banner [ref=f2e18]:
+    - generic [ref=f2e19]:
+      - link "Qarau / Internal home" [ref=f2e20] [cursor=pointer]:
+        - /url: /discovery
+        - generic [ref=f2e21]: / Internal
+      - navigation [ref=f2e22]:
+        - link "Discovery" [ref=f2e23] [cursor=pointer]:
+          - /url: /discovery
+        - link "Signals" [ref=f2e24] [cursor=pointer]:
+          - /url: /signals
+        - link "Data" [ref=f2e25] [cursor=pointer]:
+          - /url: /data
+        - link "Runs" [ref=f2e26] [cursor=pointer]:
+          - /url: /runs
+      - generic [ref=f2e27]:
+        - generic [ref=f2e28]: Owner / 01
+        - button "End session" [ref=f2e30] [cursor=pointer]
+  - main [ref=f2e31]:
+    - generic [ref=f2e32]:
+      - generic [ref=f2e33]:
+        - generic [ref=f2e34]:
+          - link "Back to data →" [ref=f2e35] [cursor=pointer]:
+            - /url: /data
+            - text: Back to data
+            - generic [ref=f2e36]: →
+          - heading "Houston daily mean temperature" [level=1] [ref=f2e37]
+          - paragraph [ref=f2e38]: OPEN_METEO · Weather · United States · TESTED
+        - generic [ref=f2e39]:
+          - generic [ref=f2e40]: SOURCE/0d6729da
+          - generic [ref=f2e41]: CANDIDATE/76
+          - generic [ref=f2e42]: PROVENANCE/UNCOMMITTED
+      - generic [ref=f2e43]:
+        - paragraph [ref=f2e44]: Source overview
+        - generic [ref=f2e45]:
+          - generic [ref=f2e46]: "Type: PUBLIC_API"
+          - generic [ref=f2e47]: "Industry: Cross-industry"
+          - generic [ref=f2e48]: "Resolution: DAILY"
+          - generic [ref=f2e49]: "Update: DAILY"
+          - generic [ref=f2e50]: "Latency: 5D"
+          - generic [ref=f2e51]: "History: 3Y"
+          - generic [ref=f2e52]: "Pricing: FREE"
+          - generic [ref=f2e53]: "API: Available"
+      - generic [ref=f2e54]:
+        - generic [ref=f2e55]:
+          - paragraph [ref=f2e56]: Private source metadata
+          - paragraph [ref=f2e57]: No sanitized source summary yet.
+        - generic [ref=f2e58]:
+          - button "Parse source" [ref=f2e59] [cursor=pointer]
+          - button "Run local AI analysis" [ref=f2e60] [cursor=pointer]
+      - generic [ref=f2e61]:
+        - paragraph [ref=f2e62]: Dataset connection · immutable snapshots
+        - paragraph [ref=f2e63]: 1097 real rows from OPEN_METEO; retrieved 01.09.2026, 21:15:21. Snapshot 893a29e7.
+        - generic [ref=f2e64]:
+          - button "Connect provider" [ref=f2e65] [cursor=pointer]
+          - generic [ref=f2e66]: Upload source CSV
+        - generic [ref=f2e67]:
+          - textbox "JSON API URL" [ref=f2e68]: https://open-meteo.com/en/docs/historical-weather-api
+          - textbox "Timestamp field" [ref=f2e69]: timestamp
+          - textbox "Value field" [ref=f2e70]: value
+          - textbox "Available-at field (optional)" [ref=f2e71]: available_at
+          - button "Connect JSON API" [ref=f2e72] [cursor=pointer]
+      - generic [ref=f2e73]:
+        - paragraph [ref=f2e74]: Alpha Lab · real market data
+        - generic [ref=f2e75]:
+          - generic [ref=f2e76]:
+            - generic [ref=f2e77]: Target
+            - combobox "Target" [ref=f2e78]:
+              - option "Euro / US dollar · ECB" [selected]
+              - option "Euro / British pound · ECB"
+              - option "Euro / Japanese yen · ECB"
+              - option "Euro / Swiss franc · ECB"
+              - option "US equity symbol · ALPHA_VANTAGE · key required" [disabled]
+          - generic [ref=f2e79]:
+            - generic [ref=f2e80]: Maximum lag
+            - spinbutton "Maximum lag" [ref=f2e81]: "10"
+          - generic [ref=f2e82]:
+            - generic [ref=f2e83]: Prediction horizon
+            - spinbutton "Prediction horizon" [ref=f2e84]: "1"
+          - generic [ref=f2e85]: Upload target CSV
+          - button "Run Alpha Test" [ref=f2e86] [cursor=pointer]
+        - generic [ref=f2e87]:
+          - paragraph [ref=f2e88]: Evidence 55/100 · best lag 9D · OOS delta R² 0.000
+          - generic [ref=f2e89]:
+            - generic [ref=f2e90]: "Samples: 759"
+            - generic [ref=f2e91]: "Spearman: -0.040"
+            - generic [ref=f2e92]: "Mutual information: 0.035"
+            - generic [ref=f2e93]: "Fold stability: 98%"
+          - paragraph [ref=f2e94]: No automatic warnings
+          - button "Queue analysis provenance →" [ref=f2e95] [cursor=pointer]:
+            - text: Queue analysis provenance
+            - generic [ref=f2e96]: →
+      - generic [ref=f2e97]:
+        - paragraph [ref=f2e98]: Solana Devnet provenance
+        - paragraph [ref=f2e99]: Only a fixed-cadence Merkle root may leave the private system. Raw URLs, targets, hypotheses, and results remain encrypted locally.
+        - generic [ref=f2e100]:
+          - button "Queue source commitment" [ref=f2e101] [cursor=pointer]
+          - button "Commit queued epoch" [ref=f2e102] [cursor=pointer]
+  - contentinfo [ref=f2e103]:
+    - generic [ref=f2e104]:
+      - generic [ref=f2e105]:
+        - img "Qarau" [ref=f2e106]
+        - paragraph [ref=f2e107]: / Internal · Private research system · Real provider snapshots
+      - paragraph [ref=f2e108]: Visibility / internal

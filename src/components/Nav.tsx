@@ -79,7 +79,7 @@ export function Footer() {
             alt="Qarau"
           />
           <p className="meta muted">
-            / Internal · Private research system · Simulated data
+            / Internal · Private research system · Real provider snapshots
           </p>
         </div>
         <p className="meta muted">Visibility / internal</p>

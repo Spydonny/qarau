@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dataset": {
+    "id": "018f5c52-4b2e-7ad1-8f7c-222222222222",
+    "version": 2,
+    "raw_snapshot_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "normalized_dataset_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "market": {
+    "mapping_version": 1,
+    "snapshot_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+    "symbol": "SOLUSD"
+  },
+  "split": {
+    "embargo_observations": 7,
+    "purge_observations": 7,
+    "test_end": "2026-06-30T00:00:00.000Z",
+    "test_start": "2026-01-01T00:00:00.000Z",
+    "train_end": "2025-06-30T00:00:00.000Z",
+    "train_start": "2023-01-01T00:00:00.000Z",
+    "validation_end": "2025-12-31T00:00:00.000Z",
+    "validation_start": "2025-07-01T00:00:00.000Z"
+  },
+  "pipeline": {
+    "code_revision": "0123456789abcdef0123456789abcdef01234567",
+    "dependency_lock_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+    "version": "qarau-analysis-v1"
+  },
+  "score": {
+    "formula_version": "QARAU_ALPHA_SCORE_V1"
+  }
+}

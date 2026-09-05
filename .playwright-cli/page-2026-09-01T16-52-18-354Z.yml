@@ -1,0 +1,26 @@
+- generic [ref=f11e2]:
+  - banner [ref=f11e3]:
+    - generic [ref=f11e4]:
+      - link "Qarau / Internal home" [ref=f11e5] [cursor=pointer]:
+        - /url: /discovery
+        - generic [ref=f11e6]: / Internal
+      - navigation [ref=f11e7]:
+        - link "Discovery" [ref=f11e8] [cursor=pointer]:
+          - /url: /discovery
+        - link "Signals" [ref=f11e9] [cursor=pointer]:
+          - /url: /signals
+        - link "Data" [ref=f11e10] [cursor=pointer]:
+          - /url: /data
+        - link "Runs" [ref=f11e11] [cursor=pointer]:
+          - /url: /runs
+      - generic [ref=f11e12]:
+        - generic [ref=f11e13]: Owner / 01
+        - button "End session" [ref=f11e15] [cursor=pointer]
+  - main [ref=f11e16]:
+    - paragraph [ref=f11e18]: Opening source record
+  - contentinfo [ref=f11e19]:
+    - generic [ref=f11e20]:
+      - generic [ref=f11e21]:
+        - img "Qarau" [ref=f11e22]
+        - paragraph [ref=f11e23]: / Internal · Private research system · Real provider snapshots
+      - paragraph [ref=f11e24]: Visibility / internal

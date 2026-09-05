@@ -1,0 +1,120 @@
+- generic [ref=f10e2]:
+  - banner [ref=f10e18]:
+    - generic [ref=f10e19]:
+      - link "Qarau / Internal home" [ref=f10e20] [cursor=pointer]:
+        - /url: /discovery
+        - generic [ref=f10e21]: / Internal
+      - navigation [ref=f10e22]:
+        - link "Discovery" [ref=f10e23] [cursor=pointer]:
+          - /url: /discovery
+        - link "Signals" [ref=f10e24] [cursor=pointer]:
+          - /url: /signals
+        - link "Data" [ref=f10e25] [cursor=pointer]:
+          - /url: /data
+        - link "Runs" [ref=f10e26] [cursor=pointer]:
+          - /url: /runs
+      - generic [ref=f10e27]:
+        - generic [ref=f10e28]: Owner / 01
+        - button "End session" [ref=f10e30] [cursor=pointer]
+  - main [ref=f10e31]:
+    - generic [ref=f10e219]:
+      - generic [ref=f10e220]:
+        - generic [ref=f10e221]:
+          - link "Back to data →" [ref=f10e222] [cursor=pointer]:
+            - /url: /data
+            - text: Back to data
+            - generic [ref=f10e223]: →
+          - heading "United States liner shipping connectivity" [level=1] [ref=f10e224]
+          - paragraph [ref=f10e225]: WORLD_BANK · Logistics · United States · DATA_CONNECTED
+        - generic [ref=f10e226]:
+          - generic [ref=f10e227]: SOURCE/f85fd919
+          - generic [ref=f10e228]: CANDIDATE/60
+          - generic [ref=f10e229]: PROVENANCE/UNCOMMITTED
+      - generic [ref=f10e230]:
+        - paragraph [ref=f10e231]: Source overview
+        - generic [ref=f10e232]:
+          - generic [ref=f10e233]: "Type: PUBLIC_API"
+          - generic [ref=f10e234]: "Industry: Cross-industry"
+          - generic [ref=f10e235]: "Resolution: ANNUAL"
+          - generic [ref=f10e236]: "Update: ANNUAL"
+          - generic [ref=f10e237]: "Latency: APPROX_1Y"
+          - generic [ref=f10e238]: "History: 30Y"
+          - generic [ref=f10e239]: "Pricing: FREE"
+          - generic [ref=f10e240]: "API: Available"
+          - generic [ref=f10e241]: "Sensitivity: PUBLIC_SOURCE"
+          - generic [ref=f10e242]: "Provider claim: VERIFIED"
+        - generic [ref=f10e243]:
+          - generic [ref=f10e244]:
+            - text: Quality
+            - strong [ref=f10e245]: "60"
+          - generic [ref=f10e246]:
+            - text: Economic relevance
+            - strong [ref=f10e247]: "82"
+          - generic [ref=f10e248]:
+            - text: Novelty
+            - strong [ref=f10e249]: "25"
+          - generic [ref=f10e250]:
+            - text: Testability
+            - strong [ref=f10e251]: "49"
+          - generic [ref=f10e252]:
+            - text: Candidate
+            - strong [ref=f10e253]: "60"
+      - generic [ref=f10e254]:
+        - generic [ref=f10e255]:
+          - paragraph [ref=f10e256]: Private source metadata
+          - paragraph [ref=f10e257]: No sanitized source summary yet.
+        - generic [ref=f10e258]:
+          - button "Parse source" [ref=f10e259] [cursor=pointer]
+          - button "Run local AI analysis" [ref=f10e260] [cursor=pointer]
+      - generic [ref=f10e261]:
+        - paragraph [ref=f10e262]: Provider ownership · private verification
+        - paragraph [ref=f10e263]: Verification is retained privately and is never linked to the source in the public Merkle-root transaction.
+        - generic [ref=f10e264]:
+          - generic [ref=f10e304]: Verified off-chain / 01.09.2026, 21:51:28
+          - button "Record private access receipt" [ref=f10e266] [cursor=pointer]
+        - paragraph [ref=f10e305]: Latest receipt / 918f76a1e7bd1941 · PRIVATE_RECORDED
+      - generic [ref=f10e267]:
+        - paragraph [ref=f10e268]: Dataset connection · immutable snapshots
+        - paragraph [ref=f10e269]: 16 real rows from WORLD_BANK; retrieved 01.09.2026, 21:50:57. Snapshot 89c2a567.
+        - generic [ref=f10e270]:
+          - button "Connect provider" [ref=f10e271] [cursor=pointer]
+          - generic [ref=f10e272]: Upload source CSV
+        - generic [ref=f10e273]:
+          - textbox "JSON API URL" [ref=f10e274]: https://data.worldbank.org/indicator/IS.SHP.GCNW.XQ
+          - textbox "Timestamp field" [ref=f10e275]: timestamp
+          - textbox "Value field" [ref=f10e276]: value
+          - textbox "Available-at field (optional)" [ref=f10e277]: available_at
+          - button "Connect JSON API" [ref=f10e278] [cursor=pointer]
+        - paragraph [ref=f10e300]: SHORT_HISTORY
+      - generic [ref=f10e279]:
+        - paragraph [ref=f10e280]: Alpha Lab · real market data
+        - generic [ref=f10e281]:
+          - generic [ref=f10e282]:
+            - generic [ref=f10e283]: Target
+            - combobox "Target" [ref=f10e284]:
+              - option "Euro / US dollar · ECB" [selected]
+              - option "Euro / British pound · ECB"
+              - option "Euro / Japanese yen · ECB"
+              - option "Euro / Swiss franc · ECB"
+              - option "US equity symbol · ALPHA_VANTAGE · key required" [disabled]
+          - generic [ref=f10e285]:
+            - generic [ref=f10e286]: Maximum lag
+            - spinbutton "Maximum lag" [ref=f10e287]: "10"
+          - generic [ref=f10e288]:
+            - generic [ref=f10e289]: Prediction horizon
+            - spinbutton "Prediction horizon" [ref=f10e290]: "1"
+          - generic [ref=f10e291]: Upload target CSV
+          - button "Run Alpha Test" [ref=f10e292] [cursor=pointer]
+      - generic [ref=f10e293]:
+        - paragraph [ref=f10e294]: Solana Devnet provenance
+        - paragraph [ref=f10e295]: Only a fixed-cadence Merkle root may leave the private system. Raw URLs, targets, hypotheses, and results remain encrypted locally.
+        - paragraph [ref=f10e296]: Cadence / 360 minutes · next epoch 01.09.2026, 23:00:00 · queued 0
+        - generic [ref=f10e297]:
+          - button "Queue source commitment" [ref=f10e298] [cursor=pointer]
+          - button "Commit queued epoch now" [ref=f10e299] [cursor=pointer]
+  - contentinfo [ref=f10e213]:
+    - generic [ref=f10e214]:
+      - generic [ref=f10e215]:
+        - img "Qarau" [ref=f10e216]
+        - paragraph [ref=f10e217]: / Internal · Private research system · Real provider snapshots
+      - paragraph [ref=f10e218]: Visibility / internal

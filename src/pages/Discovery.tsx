@@ -1,120 +1,72 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, type ResearchConfig } from "../api/client";
-import type { Lane, Run, RunLanes } from "../api/types";
-import { SysMeta, Trace } from "../components/primitives";
-import { INK } from "../components/charts";
-import { FunnelTrace } from "../components/FunnelTrace";
-import { LaneDashboard } from "../components/LaneDashboard";
-
-const DURATION = 3600;
+import type { QarauSource, Run } from "../api/types";
+import { SysMeta } from "../components/primitives";
 
 type Phase = "idle" | "running" | "complete";
 
+function sourceMatchesUniverse(source: QarauSource, universe: string) {
+  if (universe === "WEATHER") return source.category === "Weather";
+  if (universe === "PORTS + LOGISTICS") return ["Logistics", "Mobility", "Water"].includes(source.category);
+  if (universe === "ENERGY + INDUSTRY") return ["Energy", "Commodity infrastructure", "Pollution"].includes(source.category);
+  return true;
+}
+
 export function Discovery() {
-  // Targets and universes arrive from the API — the set of assets under
-  // research is not compiled into the client.
   const [cfg, setCfg] = useState<ResearchConfig | null>(null);
   const [target, setTarget] = useState("");
   const [horizon, setHorizon] = useState("");
   const [universe, setUniverse] = useState("");
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [run, setRun] = useState<Run | null>(null);
+  const [sources, setSources] = useState<QarauSource[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.config().then((c) => {
-      setCfg(c);
-      setTarget((t) => t || c.targets[0]);
-      setHorizon((h) => h || c.horizons[1] || c.horizons[0]);
-      setUniverse((u) => u || c.universes[0]);
+    api.config().then((config) => {
+      setCfg(config);
+      setTarget(config.targets[0] ?? "");
+      setHorizon(config.horizons[1] ?? config.horizons[0] ?? "");
+      setUniverse(config.universes[0] ?? "");
     }).catch(() => setCfg({ targets: [], universes: [], horizons: [] }));
   }, []);
 
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [progress, setProgress] = useState(0);
-  const [run, setRun] = useState<Run | null>(null);
-  const [lanes, setLanes] = useState<RunLanes | null>(null);
-  const [selected, setSelected] = useState<Lane | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const raf = useRef<number | null>(null);
-
   const start = async () => {
     setError(null);
-    setProgress(0);
     setRun(null);
-    setLanes(null);
-    setSelected(null);
+    setSources([]);
+    setPhase("running");
     try {
-      const res = await api.startDiscovery(target, horizon);
-      setRun(res.run);
-      // Fetch the individual hypotheses alongside the funnel counts so the
-      // diagram has something real behind every lane.
-      const laneData = await api.runLanes(res.run.id).catch(() => null);
-      setLanes(laneData);
-      setPhase("running");
+      const result = await api.startDiscovery(target, horizon, universe);
+      const registry = await api.sources({ sort: "candidate", pageSize: "100" });
+      setRun(result.run);
+      setSources(registry.sources.filter((source) => sourceMatchesUniverse(source, universe)));
+      setPhase("complete");
     } catch {
-      setError("Run could not be started.");
+      setPhase("idle");
+      setError("Source scan could not be completed.");
     }
   };
 
-  useEffect(() => {
-    if (phase !== "running") return;
-    const t0 = performance.now();
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setProgress(1);
-      setPhase("complete");
-      return;
-    }
-
-    // Read elapsed wall-clock time rather than accumulating per frame, and
-    // keep a timer alongside rAF: browsers pause rAF entirely in a hidden
-    // tab, which would otherwise freeze a run started in the background.
-    const advance = () => {
-      const p = Math.min((performance.now() - t0) / DURATION, 1);
-      setProgress(p);
-      if (p >= 1) setPhase("complete");
-    };
-    const loop = () => {
-      advance();
-      raf.current = requestAnimationFrame(loop);
-    };
-    raf.current = requestAnimationFrame(loop);
-    const keepAlive = window.setInterval(advance, 200);
-
-    return () => {
-      window.clearInterval(keepAlive);
-      if (raf.current) cancelAnimationFrame(raf.current);
-    };
-  }, [phase]);
-
-  const f = run?.funnel;
-  const count = (n: number, from: number, to: number) =>
-    Math.round(n * Math.min(Math.max((progress - from) / (to - from), 0), 1)).toLocaleString("en-US");
+  const stats = run?.catalog;
+  const tested = (run?.funnel.tested ?? 0) > 0;
 
   return (
     <div className="shell page">
       <div className="page-head">
         <h1 className="h1">Discover new signals</h1>
         <p className="body" style={{ marginTop: 16 }}>
-          Search real-world datasets for predictive relationships with a target
-          financial asset.
+          Search real-world datasets for predictive relationships with a target financial asset.
         </p>
       </div>
 
-      {/* -----------------------------------------------------------
-          RUN CONFIGURATION
-          ----------------------------------------------------------- */}
       <section className="cfg">
         <div className="cfg-row">
           <p className="meta cfg-label">Target</p>
           <div className="cfg-opts">
-            {(cfg?.targets ?? []).map((t) => (
-              <button
-                key={t}
-                className={`opt ${target === t ? "is-active" : ""}`}
-                onClick={() => setTarget(t)}
-                disabled={phase === "running"}
-              >
-                {t}
-              </button>
+            {(cfg?.targets ?? []).map((value) => (
+              <button key={value} className={`opt ${target === value ? "is-active" : ""}`} onClick={() => setTarget(value)} disabled={phase === "running"}>{value}</button>
             ))}
           </div>
         </div>
@@ -122,15 +74,8 @@ export function Discovery() {
         <div className="cfg-row">
           <p className="meta cfg-label">Data universe</p>
           <div className="cfg-opts">
-            {(cfg?.universes ?? []).map((u) => (
-              <button
-                key={u}
-                className={`opt ${universe === u ? "is-active" : ""}`}
-                onClick={() => setUniverse(u)}
-                disabled={phase === "running"}
-              >
-                {u}
-              </button>
+            {(cfg?.universes ?? []).map((value) => (
+              <button key={value} className={`opt ${universe === value ? "is-active" : ""}`} onClick={() => setUniverse(value)} disabled={phase === "running"}>{value}</button>
             ))}
           </div>
         </div>
@@ -138,155 +83,84 @@ export function Discovery() {
         <div className="cfg-row">
           <p className="meta cfg-label">Horizon</p>
           <div className="cfg-opts">
-            {(cfg?.horizons ?? []).map((h) => (
-              <button
-                key={h}
-                className={`opt ${horizon === h ? "is-active" : ""}`}
-                onClick={() => setHorizon(h)}
-                disabled={phase === "running"}
-              >
-                {h}
-              </button>
+            {(cfg?.horizons ?? []).map((value) => (
+              <button key={value} className={`opt ${horizon === value ? "is-active" : ""}`} onClick={() => setHorizon(value)} disabled={phase === "running"}>{value}</button>
             ))}
           </div>
         </div>
 
         <div className="cfg-go">
-          <button className="btn btn-primary" onClick={start} disabled={phase === "running" || !target}>
-            {phase === "running" ? "Running" : "Run private discovery"} <span className="arrow">→</span>
+          <button className="btn btn-primary" onClick={start} disabled={phase === "running" || !target || !horizon || !universe}>
+            {phase === "running" ? "Scanning sources..." : "Scan source registry"} <span className="arrow">→</span>
           </button>
-          <SysMeta
-            inline
-            rows={[
-              ["RUN", run?.id ?? "—"],
-              ["VISIBILITY", "PRIVATE"],
-              ["OWNER", "01"],
-            ]}
-          />
+          <SysMeta inline rows={[["RUN", run ? run.id.slice(-12).toUpperCase() : "—"], ["VISIBILITY", "PRIVATE"], ["OWNER", "01"]]} />
         </div>
         {error && <p className="meta gate-error" style={{ marginTop: 20 }}>{error}</p>}
       </section>
 
-      {phase !== "idle" && run && f && (
+      {phase === "complete" && run && stats && (
         <>
           <hr className="rule" />
-
-          {/* -------------------------------------------------------
-              THE FUNNEL — the system rejecting almost everything.
-              ------------------------------------------------------- */}
-          <section className="scan">
-            <div className="scan-trace">
-              <FunnelTrace
-                data={lanes}
-                progress={progress}
-                selectedId={selected?.id ?? null}
-                onSelect={setSelected}
-              />
+          <section className="discovery-result">
+            <div className="discovery-result-head">
+              <div>
+                <p className="meta">Discovery result</p>
+                <h2 className="h2">{stats.sourcesInScope} real sources in scope</h2>
+              </div>
+              <p className="meta">RUN / {run.id.slice(-12).toUpperCase()} · {run.status}</p>
             </div>
 
-            <aside className="scan-side">
-              <SysMeta
-                rows={[
-                  ["RUN", run.id],
-                  ["TARGET", run.target],
-                  ["HORIZON", run.horizon],
-                  ["UNIVERSE", universe],
-                ]}
-              />
+            <div className="discovery-stats">
+              <div><strong>{stats.sourcesInScope}</strong><span>sources indexed</span></div>
+              <div><strong>{stats.newSources}</strong><span>new this scan</span></div>
+              <div><strong>{stats.snapshotsReady}</strong><span>snapshots ready</span></div>
+              <div><strong>{stats.matchingTests}</strong><span>{target} / {horizon} tests</span></div>
+              <div><strong>{run.funnel.candidates}</strong><span>retained evidence</span></div>
+            </div>
 
-              <div className="funnel" style={{ marginTop: 34 }}>
-                {(
-                  [
-                    [f.datasets, "datasets", 0, 0.12],
-                    [f.features, "features generated", 0.1, 0.28],
-                    [f.tested, "relationships tested", 0.24, 0.46],
-                    [f.passedFilters, "passed initial filters", 0.44, 0.62],
-                    [f.passedRobustness, "passed robustness", 0.6, 0.78],
-                    [f.passedOOS, "passed out-of-sample", 0.76, 0.92],
-                    [f.candidates, "proprietary candidates", 0.9, 1],
-                  ] as [number, string, number, number][]
-                ).map(([v, k, a, b], i) => (
-                  <div key={k} className="funnel-row">
-                    <span className="funnel-n mono">{count(v, a, b)}</span>
-                    <span className="funnel-k">{k}</span>
-                    <span className="funnel-bar" style={{ width: `${100 - i * 13}%` }} />
-                  </div>
-                ))}
+            <div className="discovery-status">
+              <p className="body-sm">{run.note}</p>
+              <div className="run-links">
+                <Link to="/data" className="btn-ghost">Open data registry <span className="arrow">→</span></Link>
+                <Link to="/runs" className="btn-ghost">Run log <span className="arrow">→</span></Link>
               </div>
-            </aside>
+            </div>
           </section>
 
-          {selected && run && (
-            <LaneDashboard
-              lane={selected}
-              target={run.target}
-              runId={run.id}
-              onClose={() => setSelected(null)}
-            />
+          {tested && (
+            <section className="discovery-validation">
+              <div className="discovery-section-head">
+                <div><p className="meta">Validation</p><h3>Tests matching this selection</h3></div>
+                <span className="meta">{target} / {horizon} / {universe}</span>
+              </div>
+              <div className="validation-stages">
+                <div><strong>{run.funnel.tested}</strong><span>tested</span></div>
+                <div><strong>{run.funnel.passedFilters}</strong><span>sample filter</span></div>
+                <div><strong>{run.funnel.passedRobustness}</strong><span>robust folds</span></div>
+                <div><strong>{run.funnel.passedOOS}</strong><span>positive OOS</span></div>
+                <div><strong>{run.funnel.candidates}</strong><span>retained</span></div>
+              </div>
+              {run.producedSignalIds.length > 0 && <div className="run-links">{run.producedSignalIds.map((id) => <Link key={id} to={`/signals/${id}`} className="btn-ghost">Open SIG / {id.slice(-10).toUpperCase()} <span className="arrow">→</span></Link>)}</div>}
+            </section>
           )}
 
-          {phase === "complete" && (
-            <>
-              <hr className="rule" />
-              <section className="run-out">
-                <div className="run-out-head">
-                  <h2 className="h2">
-                    {run.producedSignalIds.length > 0
-                      ? "Survived validation"
-                      : "Nothing survived validation"}
-                  </h2>
-                  <p className="meta">
-                    Run / {run.id} · {run.status}
-                  </p>
-                </div>
-
-                {run.producedSignalIds.length > 0 ? (
-                  <p className="body-sm" style={{ maxWidth: "60ch", marginTop: 14 }}>
-                    {f.tested.toLocaleString("en-US")} relationships tested,{" "}
-                    {run.producedSignalIds.length} retained as proprietary. Added to the
-                    private inventory.
-                  </p>
-                ) : (
-                  <p className="body-sm" style={{ maxWidth: "60ch", marginTop: 14 }}>
-                    {run.note ?? "No relationship in this universe survived out-of-sample validation."}
-                  </p>
-                )}
-
-                <div className="run-links">
-                  {run.producedSignalIds.map((id) => (
-                    <Link key={id} to={`/signals/${id}`} className="btn-ghost">
-                      Open SIG / {id} <span className="arrow">→</span>
-                    </Link>
-                  ))}
-                  <Link to="/runs" className="btn-ghost">
-                    Full run log <span className="arrow">→</span>
-                  </Link>
-                </div>
-
-                {run.rejected.length > 0 && (
-                  <div className="rej-list">
-                    <p className="meta" style={{ marginBottom: 20 }}>
-                      Rejected in this run
-                    </p>
-                    {run.rejected.map((r) => (
-                      <div key={r.name} className="rej">
-                        <div className="rej-main">
-                          <p className="rej-name">{r.name}</p>
-                          <p className="meta" style={{ marginTop: 8 }}>
-                            Failed at {r.stage}
-                          </p>
-                        </div>
-                        <div className="rej-trace">
-                          <Trace seed={r.name.length * 733} width={200} height={22} state="broken" tone={INK.neg} />
-                        </div>
-                        <p className="body-sm rej-why">{r.reason}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-            </>
-          )}
+          <section className="discovery-sources">
+            <div className="discovery-section-head">
+              <div><p className="meta">Registry queue</p><h3>Highest-ranked sources in scope</h3></div>
+              <span className="meta">{sources.length} records</span>
+            </div>
+            <div className="discovery-source-list">
+              {sources.slice(0, 6).map((source) => (
+                <Link key={source.id} to={`/data/${source.id}`} className="discovery-source-row">
+                  <div><span className="meta">{source.provider}</span><strong>{source.name}</strong></div>
+                  <span>{source.category} / {source.region}</span>
+                  <span>{source.dataset ? `${source.dataset.rows.toLocaleString("en-US")} rows` : "No snapshot"}</span>
+                  <span className="discovery-score">{source.scores.candidate}<small>score</small></span>
+                  <span className="arrow">→</span>
+                </Link>
+              ))}
+            </div>
+          </section>
         </>
       )}
     </div>

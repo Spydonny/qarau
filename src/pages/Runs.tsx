@@ -130,7 +130,7 @@ export function Runs() {
       </div>
 
       <p className="meta muted" style={{ marginTop: 40, lineHeight: 1.8 }}>
-        Run log is append-only. Simulated throughout.
+        Run log is append-only and contains only persisted Alpha Tests over immutable real-data snapshots.
       </p>
     </div>
   );

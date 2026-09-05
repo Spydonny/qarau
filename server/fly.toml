@@ -7,7 +7,7 @@ app = 'server-sparkling-hillside-7767'
 primary_region = 'arn'
 
 [build]
-  dockerfile = 'Dockerfile'
+  dockerfile = 'server/Dockerfile'
 
 [env]
   NODE_ENV = 'production'

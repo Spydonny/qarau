@@ -1,0 +1,15 @@
+{
+  "policy_version": 1,
+  "grant_scope": "PURCHASED_DATASET_LINE",
+  "allowed_tier_mask": 3,
+  "early": {
+    "available_immediately": true
+  },
+  "delayed": {
+    "version_lag": 1,
+    "release_seconds": "604800"
+  },
+  "expiry": {
+    "grant_duration_seconds": "2592000"
+  }
+}

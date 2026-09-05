@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qarau.local/schemas/evidence-bundle-v1.schema.json",
+  "title": "QARAU MVP evidence bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "network", "started_at", "completed_at", "steps"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "run_id": { "type": "string", "format": "uuid" },
+    "network": { "enum": ["localnet", "devnet"] },
+    "started_at": { "type": "string", "format": "date-time" },
+    "completed_at": { "type": "string", "format": "date-time" },
+    "steps": {
+      "type": "array",
+      "minItems": 20,
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["number", "name", "status", "evidence"],
+        "properties": {
+          "number": { "type": "integer", "minimum": 1, "maximum": 20 },
+          "name": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["passed", "failed", "blocked"] },
+          "evidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "database_ids": { "type": "array", "items": { "type": "string" } },
+              "artifact_hashes": { "type": "array", "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" } },
+              "transaction_signatures": { "type": "array", "items": { "type": "string" } },
+              "account_addresses": { "type": "array", "items": { "type": "string" } },
+              "audit_event_ids": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    }
+  }
+}

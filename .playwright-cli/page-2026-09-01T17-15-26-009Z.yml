@@ -1,0 +1,197 @@
+- generic [ref=f1e2]:
+  - banner [ref=f1e7]:
+    - generic [ref=f1e8]:
+      - link "Qarau / Internal home" [ref=f1e9] [cursor=pointer]:
+        - /url: /discovery
+        - generic [ref=f1e10]: / Internal
+      - navigation [ref=f1e11]:
+        - link "Discovery" [ref=f1e12] [cursor=pointer]:
+          - /url: /discovery
+        - link "Signals" [ref=f1e13] [cursor=pointer]:
+          - /url: /signals
+        - link "Data" [ref=f1e14] [cursor=pointer]:
+          - /url: /data
+        - link "Runs" [ref=f1e15] [cursor=pointer]:
+          - /url: /runs
+      - generic [ref=f1e16]:
+        - generic [ref=f1e17]: Owner / 01
+        - button "End session" [ref=f1e19] [cursor=pointer]
+  - main [ref=f1e20]:
+    - generic [ref=f1e21]:
+      - generic [ref=f1e22]:
+        - heading "Discover new signals" [level=1] [ref=f1e23]
+        - paragraph [ref=f1e24]: Search real-world datasets for predictive relationships with a target financial asset.
+      - generic [ref=f1e25]:
+        - generic [ref=f1e26]:
+          - paragraph [ref=f1e27]: Target
+          - generic [ref=f1e28]:
+            - button "EURUSD" [ref=f1e29] [cursor=pointer]
+            - button "EURGBP" [ref=f1e30] [cursor=pointer]
+            - button "EURJPY" [ref=f1e31] [cursor=pointer]
+            - button "EURCHF" [ref=f1e32] [cursor=pointer]
+        - generic [ref=f1e33]:
+          - paragraph [ref=f1e34]: Data universe
+          - generic [ref=f1e35]:
+            - button "ALL AVAILABLE" [ref=f1e36] [cursor=pointer]
+            - button "ENERGY + INDUSTRY" [ref=f1e37] [cursor=pointer]
+            - button "PORTS + LOGISTICS" [ref=f1e38] [cursor=pointer]
+            - button "WEATHER" [ref=f1e39] [cursor=pointer]
+        - generic [ref=f1e40]:
+          - paragraph [ref=f1e41]: Horizon
+          - generic [ref=f1e42]:
+            - button "1D" [ref=f1e43] [cursor=pointer]
+            - button "3D" [ref=f1e44] [cursor=pointer]
+            - button "7D" [ref=f1e45] [cursor=pointer]
+            - button "14D" [ref=f1e46] [cursor=pointer]
+        - generic [ref=f1e47]:
+          - button "Scan source registry →" [ref=f1e48] [cursor=pointer]:
+            - text: Scan source registry
+            - generic [ref=f1e49]: →
+          - generic [ref=f1e50]:
+            - generic [ref=f1e51]: RUN/4C42186EB138
+            - generic [ref=f1e52]: VISIBILITY/PRIVATE
+            - generic [ref=f1e53]: OWNER/01
+      - separator [ref=f1e145]
+      - generic [ref=f1e146]:
+        - generic [ref=f1e147]:
+          - generic [ref=f1e148]:
+            - paragraph [ref=f1e149]: Discovery result
+            - heading "11 real sources in scope" [level=2] [ref=f1e150]
+          - paragraph [ref=f1e151]: RUN / 4C42186EB138 · COMPLETE
+        - generic [ref=f1e152]:
+          - generic [ref=f1e153]:
+            - strong [ref=f1e154]: "11"
+            - generic [ref=f1e155]: sources indexed
+          - generic [ref=f1e156]:
+            - strong [ref=f1e157]: "0"
+            - generic [ref=f1e158]: new this scan
+          - generic [ref=f1e159]:
+            - strong [ref=f1e160]: "2"
+            - generic [ref=f1e161]: snapshots ready
+          - generic [ref=f1e162]:
+            - strong [ref=f1e163]: "2"
+            - generic [ref=f1e164]: EURUSD / 1D tests
+          - generic [ref=f1e165]:
+            - strong [ref=f1e166]: "2"
+            - generic [ref=f1e167]: retained evidence
+        - generic [ref=f1e168]:
+          - paragraph [ref=f1e169]: 2 real tests matched EURUSD / 1D in ALL AVAILABLE.
+          - generic [ref=f1e170]:
+            - link "Open data registry →" [ref=f1e171] [cursor=pointer]:
+              - /url: /data
+              - text: Open data registry
+              - generic [ref=f1e172]: →
+            - link "Run log →" [ref=f1e173] [cursor=pointer]:
+              - /url: /runs
+              - text: Run log
+              - generic [ref=f1e174]: →
+      - generic [ref=f1e175]:
+        - generic [ref=f1e176]:
+          - generic [ref=f1e177]:
+            - paragraph [ref=f1e178]: Validation
+            - heading "Tests matching this selection" [level=3] [ref=f1e179]
+          - generic [ref=f1e180]: EURUSD / 1D / ALL AVAILABLE
+        - generic [ref=f1e181]:
+          - generic [ref=f1e182]:
+            - strong [ref=f1e183]: "2"
+            - generic [ref=f1e184]: tested
+          - generic [ref=f1e185]:
+            - strong [ref=f1e186]: "2"
+            - generic [ref=f1e187]: sample filter
+          - generic [ref=f1e188]:
+            - strong [ref=f1e189]: "2"
+            - generic [ref=f1e190]: robust folds
+          - generic [ref=f1e191]:
+            - strong [ref=f1e192]: "2"
+            - generic [ref=f1e193]: positive OOS
+          - generic [ref=f1e194]:
+            - strong [ref=f1e195]: "2"
+            - generic [ref=f1e196]: retained
+        - generic [ref=f1e197]:
+          - link "Open SIG / 33B14466C1 →" [ref=f1e198] [cursor=pointer]:
+            - /url: /signals/test_69c50cf117e44baf86e96c33b14466c1
+            - text: Open SIG / 33B14466C1
+            - generic [ref=f1e199]: →
+          - link "Open SIG / 98EB89375C →" [ref=f1e200] [cursor=pointer]:
+            - /url: /signals/test_ebd583e5774942678f160098eb89375c
+            - text: Open SIG / 98EB89375C
+            - generic [ref=f1e201]: →
+      - generic [ref=f1e202]:
+        - generic [ref=f1e203]:
+          - generic [ref=f1e204]:
+            - paragraph [ref=f1e205]: Registry queue
+            - heading "Highest-ranked sources in scope" [level=3] [ref=f1e206]
+          - generic [ref=f1e207]: 11 records
+        - generic [ref=f1e208]:
+          - link "OPEN_METEO Houston daily mean temperature Weather / United States 1,097 rows 77 score →" [ref=f1e209] [cursor=pointer]:
+            - /url: /data/src_5d8613a48c734f8fbe420e5b007f57dd
+            - generic [ref=f1e210]:
+              - text: OPEN_METEO
+              - strong [ref=f1e211]: Houston daily mean temperature
+            - generic [ref=f1e212]: Weather / United States
+            - generic [ref=f1e213]: 1,097 rows
+            - generic [ref=f1e214]:
+              - text: "77"
+              - generic [ref=f1e215]: score
+            - generic [ref=f1e216]: →
+          - link "WORLD_BANK United States liner shipping connectivity Logistics / United States 16 rows 61 score →" [ref=f1e217] [cursor=pointer]:
+            - /url: /data/src_04a5223df5424fa68d51fbd5c95ebca6
+            - generic [ref=f1e218]:
+              - text: WORLD_BANK
+              - strong [ref=f1e219]: United States liner shipping connectivity
+            - generic [ref=f1e220]: Logistics / United States
+            - generic [ref=f1e221]: 16 rows
+            - generic [ref=f1e222]:
+              - text: "61"
+              - generic [ref=f1e223]: score
+            - generic [ref=f1e224]: →
+          - link "WORLD_BANK United States electricity use per capita Energy / United States No snapshot 55 score →" [ref=f1e225] [cursor=pointer]:
+            - /url: /data/src_038bf7b1a15f4951a2aab91d9c5a97fb
+            - generic [ref=f1e226]:
+              - text: WORLD_BANK
+              - strong [ref=f1e227]: United States electricity use per capita
+            - generic [ref=f1e228]: Energy / United States
+            - generic [ref=f1e229]: No snapshot
+            - generic [ref=f1e230]:
+              - text: "55"
+              - generic [ref=f1e231]: score
+            - generic [ref=f1e232]: →
+          - link "WORLD_BANK United States rail passenger activity Mobility / United States No snapshot 54 score →" [ref=f1e233] [cursor=pointer]:
+            - /url: /data/src_a396d79175f94c888d97aa9a1af05c35
+            - generic [ref=f1e234]:
+              - text: WORLD_BANK
+              - strong [ref=f1e235]: United States rail passenger activity
+            - generic [ref=f1e236]: Mobility / United States
+            - generic [ref=f1e237]: No snapshot
+            - generic [ref=f1e238]:
+              - text: "54"
+              - generic [ref=f1e239]: score
+            - generic [ref=f1e240]: →
+          - link "OPEN_METEO Rotterdam daily precipitation Weather / Netherlands No snapshot 53 score →" [ref=f1e241] [cursor=pointer]:
+            - /url: /data/src_15a1cdbb8c644a2cae6ead97b20a10b1
+            - generic [ref=f1e242]:
+              - text: OPEN_METEO
+              - strong [ref=f1e243]: Rotterdam daily precipitation
+            - generic [ref=f1e244]: Weather / Netherlands
+            - generic [ref=f1e245]: No snapshot
+            - generic [ref=f1e246]:
+              - text: "53"
+              - generic [ref=f1e247]: score
+            - generic [ref=f1e248]: →
+          - link "USGS Potomac River daily discharge Water / United States No snapshot 52 score →" [ref=f1e249] [cursor=pointer]:
+            - /url: /data/src_465edf7529514c909ae0bd6c668d4f58
+            - generic [ref=f1e250]:
+              - text: USGS
+              - strong [ref=f1e251]: Potomac River daily discharge
+            - generic [ref=f1e252]: Water / United States
+            - generic [ref=f1e253]: No snapshot
+            - generic [ref=f1e254]:
+              - text: "52"
+              - generic [ref=f1e255]: score
+            - generic [ref=f1e256]: →
+  - contentinfo [ref=f1e54]:
+    - generic [ref=f1e55]:
+      - generic [ref=f1e56]:
+        - img "Qarau" [ref=f1e57]
+        - paragraph [ref=f1e58]: / Internal · Private research system · Real provider snapshots
+      - paragraph [ref=f1e59]: Visibility / internal

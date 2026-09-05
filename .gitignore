@@ -16,3 +16,6 @@ Physical_Alpha_Network*/
 tmp/physical-alpha-deck/
 tmp/qarau-*/
 tmp/*presentation*/
+server/data/private/
+target/
+output/playwright/

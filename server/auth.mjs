@@ -126,11 +126,8 @@ function readCookie(req, name) {
 function setSessionCookie(res, token) {
   res.cookie(COOKIE, token, {
     httpOnly: true, // never readable from page scripts
-    // The interface is served from a different origin than this API, so the
-    // cookie has to be allowed cross-site. Browsers only accept None together
-    // with Secure, which is why this is no longer tied to NODE_ENV.
-    sameSite: "none",
-    secure: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: ABSOLUTE_MS,
   });
@@ -139,7 +136,7 @@ function setSessionCookie(res, token) {
 function createSession() {
   const token = randomBytes(32).toString("hex");
   const now = Date.now();
-  sessions.set(token, { ownerId, createdAt: now, lastSeen: now });
+  sessions.set(token, { ownerId, csrfToken: randomBytes(32).toString("hex"), createdAt: now, lastSeen: now });
   return token;
 }
 
@@ -170,7 +167,19 @@ export function requireOwner(req, res, next) {
     res.status(401).json({ error: "unauthorized" });
     return;
   }
-  req.owner = { id: found.session.ownerId };
+  req.owner = { id: found.session.ownerId, csrfToken: found.session.csrfToken };
+  next();
+}
+
+export function requireCsrf(req, res, next) {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+  const received = String(req.get("x-csrf-token") ?? "");
+  const expected = Buffer.from(req.owner?.csrfToken ?? "", "utf8");
+  const actual = Buffer.from(received, "utf8");
+  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
+    res.status(403).json({ error: "csrf_invalid" });
+    return;
+  }
   next();
 }
 
@@ -189,10 +198,7 @@ export function registerAuthRoutes(app) {
       return;
     }
 
-    // WORKSHOP / DEMO MODE: any non-empty credential is accepted. This bypasses
-    // password verification so the demo can be entered without a configured
-    // owner secret. Restore the verifyPassword() check before any real use.
-    const ok = true;
+    const ok = await verifyPassword(password, credential);
     if (!ok) {
       recordFailure(req);
       // Deliberately identical to every other failure: no hint about which
@@ -202,15 +208,16 @@ export function registerAuthRoutes(app) {
     }
 
     clearFailures(req);
-    setSessionCookie(res, createSession());
-    res.json({ owner: { id: ownerId }, environment: "private" });
+    const token = createSession();
+    setSessionCookie(res, token);
+    res.json({ owner: { id: ownerId }, environment: "private", csrfToken: sessions.get(token).csrfToken });
   });
 
   app.post("/api/auth/logout", (req, res) => {
     const found = readSession(req);
     if (found) sessions.delete(found.token);
     // Attributes have to match the ones it was set with or it is not cleared.
-    res.clearCookie(COOKIE, { path: "/", sameSite: "none", secure: true });
+    res.clearCookie(COOKIE, { path: "/", sameSite: "strict", secure: process.env.NODE_ENV === "production" });
     res.json({ ok: true });
   });
 
@@ -223,6 +230,7 @@ export function registerAuthRoutes(app) {
     res.json({
       owner: { id: found.session.ownerId },
       environment: "private",
+      csrfToken: found.session.csrfToken,
       issuedAt: new Date(found.session.createdAt).toISOString(),
     });
   });

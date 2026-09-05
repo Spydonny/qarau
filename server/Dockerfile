@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1
-# API only. Build context is THIS directory, so deploy from server/:
-#   fly deploy
-FROM node:22-alpine
+# API-only image using the repository root lockfile:
+#   fly deploy . --config server/fly.toml
+FROM node:24-bookworm-slim
 WORKDIR /app
 ENV NODE_ENV=production
 ENV API_PORT=8080
-COPY package.json ./
-RUN npm install --omit=dev
-COPY . .
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+COPY server ./server
 EXPOSE 8080
-CMD ["node", "index.mjs"]
+CMD ["npm", "run", "start:api"]

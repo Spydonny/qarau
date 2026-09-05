@@ -1,0 +1,129 @@
+- generic [ref=f11e2]:
+  - banner [ref=f11e3]:
+    - generic [ref=f11e4]:
+      - link "Qarau / Internal home" [ref=f11e5] [cursor=pointer]:
+        - /url: /discovery
+        - generic [ref=f11e6]: / Internal
+      - navigation [ref=f11e7]:
+        - link "Discovery" [ref=f11e8] [cursor=pointer]:
+          - /url: /discovery
+        - link "Signals" [ref=f11e9] [cursor=pointer]:
+          - /url: /signals
+        - link "Data" [ref=f11e10] [cursor=pointer]:
+          - /url: /data
+        - link "Runs" [ref=f11e11] [cursor=pointer]:
+          - /url: /runs
+      - generic [ref=f11e12]:
+        - generic [ref=f11e13]: Owner / 01
+        - button "End session" [ref=f11e15] [cursor=pointer]
+  - main [ref=f11e16]:
+    - generic [ref=f11e17]:
+      - generic [ref=f11e25]:
+        - generic [ref=f11e26]:
+          - link "Back to data →" [ref=f11e27] [cursor=pointer]:
+            - /url: /data
+            - text: Back to data
+            - generic [ref=f11e28]: →
+          - heading "Houston daily mean temperature" [level=1] [ref=f11e29]
+          - paragraph [ref=f11e30]: OPEN_METEO · Weather · United States · TESTED
+        - generic [ref=f11e31]:
+          - generic [ref=f11e32]: SOURCE/0d6729da
+          - generic [ref=f11e33]: CANDIDATE/76
+          - generic [ref=f11e34]: PROVENANCE/UNCOMMITTED
+      - generic [ref=f11e35]:
+        - paragraph [ref=f11e36]: Source overview
+        - generic [ref=f11e37]:
+          - generic [ref=f11e38]: "Type: PUBLIC_API"
+          - generic [ref=f11e39]: "Industry: Cross-industry"
+          - generic [ref=f11e40]: "Resolution: DAILY"
+          - generic [ref=f11e41]: "Update: DAILY"
+          - generic [ref=f11e42]: "Latency: 5D"
+          - generic [ref=f11e43]: "History: 3Y"
+          - generic [ref=f11e44]: "Pricing: FREE"
+          - generic [ref=f11e45]: "API: Available"
+          - generic [ref=f11e46]: "Sensitivity: PUBLIC_SOURCE"
+          - generic [ref=f11e47]: "Provider claim: UNCLAIMED"
+        - generic [ref=f11e48]:
+          - generic [ref=f11e49]:
+            - text: Quality
+            - strong [ref=f11e50]: "84"
+          - generic [ref=f11e51]:
+            - text: Economic relevance
+            - strong [ref=f11e52]: "65"
+          - generic [ref=f11e53]:
+            - text: Novelty
+            - strong [ref=f11e54]: "42"
+          - generic [ref=f11e55]:
+            - text: Testability
+            - strong [ref=f11e56]: "90"
+          - generic [ref=f11e57]:
+            - text: Candidate
+            - strong [ref=f11e58]: "76"
+      - generic [ref=f11e59]:
+        - generic [ref=f11e60]:
+          - paragraph [ref=f11e61]: Private source metadata
+          - paragraph [ref=f11e62]: No sanitized source summary yet.
+        - generic [ref=f11e63]:
+          - button "Parse source" [disabled] [ref=f11e64]
+          - button "Run local AI analysis" [disabled] [ref=f11e65]
+      - generic [ref=f11e66]:
+        - paragraph [ref=f11e67]: Provider ownership · private verification
+        - paragraph [ref=f11e68]: Verification is retained privately and is never linked to the source in the public Merkle-root transaction.
+        - generic [ref=f11e69]:
+          - button "Start admin verification" [disabled] [ref=f11e70]
+          - button "Record private access receipt" [disabled] [ref=f11e71]
+      - generic [ref=f11e72]:
+        - paragraph [ref=f11e73]: Dataset connection · immutable snapshots
+        - paragraph [ref=f11e74]: 1097 real rows from OPEN_METEO; retrieved 01.09.2026, 21:15:21. Snapshot 893a29e7.
+        - generic [ref=f11e75]:
+          - button "Connect provider" [disabled] [ref=f11e76]
+          - generic [ref=f11e77]: Upload source CSV
+        - generic [ref=f11e78]:
+          - textbox "JSON API URL" [ref=f11e79]: https://open-meteo.com/en/docs/historical-weather-api
+          - textbox "Timestamp field" [ref=f11e80]: timestamp
+          - textbox "Value field" [ref=f11e81]: value
+          - textbox "Available-at field (optional)" [ref=f11e82]: available_at
+          - button "Connect JSON API" [disabled] [ref=f11e83]
+      - generic [ref=f11e84]:
+        - paragraph [ref=f11e85]: Alpha Lab · real market data
+        - generic [ref=f11e86]:
+          - generic [ref=f11e87]:
+            - generic [ref=f11e88]: Target
+            - combobox "Target" [ref=f11e89]:
+              - option "Euro / US dollar · ECB" [selected]
+              - option "Euro / British pound · ECB"
+              - option "Euro / Japanese yen · ECB"
+              - option "Euro / Swiss franc · ECB"
+              - option "US equity symbol · ALPHA_VANTAGE · key required" [disabled]
+          - generic [ref=f11e90]:
+            - generic [ref=f11e91]: Maximum lag
+            - spinbutton "Maximum lag" [ref=f11e92]: "10"
+          - generic [ref=f11e93]:
+            - generic [ref=f11e94]: Prediction horizon
+            - spinbutton "Prediction horizon" [ref=f11e95]: "1"
+          - generic [ref=f11e96]: Upload target CSV
+          - button "Testing" [disabled] [ref=f11e115]
+        - generic [ref=f11e98]:
+          - paragraph [ref=f11e99]: Evidence 55/100 · best lag 9D · OOS delta R² 0.000
+          - generic [ref=f11e100]:
+            - generic [ref=f11e101]: "Samples: 759"
+            - generic [ref=f11e102]: "Spearman: -0.040"
+            - generic [ref=f11e103]: "Mutual information: 0.035"
+            - generic [ref=f11e104]: "Fold stability: 98%"
+          - paragraph [ref=f11e105]: No automatic warnings
+          - button "Queue analysis provenance →" [disabled] [ref=f11e106] [cursor=pointer]:
+            - text: Queue analysis provenance
+            - generic [ref=f11e107]: →
+      - generic [ref=f11e108]:
+        - paragraph [ref=f11e109]: Solana Devnet provenance
+        - paragraph [ref=f11e110]: Only a fixed-cadence Merkle root may leave the private system. Raw URLs, targets, hypotheses, and results remain encrypted locally.
+        - paragraph [ref=f11e111]: Cadence / 360 minutes · next epoch 01.09.2026, 23:00:00 · queued 0
+        - generic [ref=f11e112]:
+          - button "Queue source commitment" [disabled] [ref=f11e113]
+          - button "Commit queued epoch now" [disabled] [ref=f11e114]
+  - contentinfo [ref=f11e19]:
+    - generic [ref=f11e20]:
+      - generic [ref=f11e21]:
+        - img "Qarau" [ref=f11e22]
+        - paragraph [ref=f11e23]: / Internal · Private research system · Real provider snapshots
+      - paragraph [ref=f11e24]: Visibility / internal

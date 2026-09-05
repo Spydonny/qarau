@@ -1,0 +1,59 @@
+- generic [ref=e2]:
+  - banner [ref=e18]:
+    - generic [ref=e19]:
+      - link "Qarau / Internal home" [ref=e20] [cursor=pointer]:
+        - /url: /discovery
+        - generic [ref=e21]: / Internal
+      - navigation [ref=e22]:
+        - link "Discovery" [ref=e23] [cursor=pointer]:
+          - /url: /discovery
+        - link "Signals" [ref=e24] [cursor=pointer]:
+          - /url: /signals
+        - link "Data" [ref=e25] [cursor=pointer]:
+          - /url: /data
+        - link "Runs" [ref=e26] [cursor=pointer]:
+          - /url: /runs
+      - generic [ref=e27]:
+        - generic [ref=e28]: Owner / 01
+        - button "End session" [ref=e30] [cursor=pointer]
+  - main [ref=e31]:
+    - generic [ref=e32]:
+      - generic [ref=e33]:
+        - heading "Discover new signals" [level=1] [ref=e34]
+        - paragraph [ref=e35]: Search real-world datasets for predictive relationships with a target financial asset.
+      - generic [ref=e36]:
+        - generic [ref=e37]:
+          - paragraph [ref=e38]: Target
+          - generic [ref=e39]:
+            - button "EURUSD" [ref=e40] [cursor=pointer]
+            - button "EURGBP" [ref=e41] [cursor=pointer]
+            - button "EURJPY" [ref=e42] [cursor=pointer]
+            - button "EURCHF" [ref=e43] [cursor=pointer]
+        - generic [ref=e44]:
+          - paragraph [ref=e45]: Data universe
+          - generic [ref=e46]:
+            - button "ALL AVAILABLE" [ref=e47] [cursor=pointer]
+            - button "ENERGY + INDUSTRY" [ref=e48] [cursor=pointer]
+            - button "PORTS + LOGISTICS" [ref=e49] [cursor=pointer]
+            - button "WEATHER" [ref=e50] [cursor=pointer]
+        - generic [ref=e51]:
+          - paragraph [ref=e52]: Horizon
+          - generic [ref=e53]:
+            - button "1D" [ref=e54] [cursor=pointer]
+            - button "3D" [ref=e55] [cursor=pointer]
+            - button "7D" [ref=e56] [cursor=pointer]
+            - button "14D" [ref=e57] [cursor=pointer]
+        - generic [ref=e58]:
+          - button "Run private discovery →" [ref=e59] [cursor=pointer]:
+            - text: Run private discovery
+            - generic [ref=e60]: →
+          - generic [ref=e61]:
+            - generic [ref=e62]: RUN/—
+            - generic [ref=e63]: VISIBILITY/PRIVATE
+            - generic [ref=e64]: OWNER/01
+  - contentinfo [ref=e65]:
+    - generic [ref=e66]:
+      - generic [ref=e67]:
+        - img "Qarau" [ref=e68]
+        - paragraph [ref=e69]: / Internal · Private research system · Simulated data
+      - paragraph [ref=e70]: Visibility / internal

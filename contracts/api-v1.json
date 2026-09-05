@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "base_path": "/api/v1",
+  "security_models": {
+    "public": "none",
+    "owner": "owner_session_and_csrf",
+    "wallet": "siws_wallet_session",
+    "wallet_finalized_grant": "siws_wallet_session_plus_finalized_access_grant"
+  },
+  "endpoints": [
+    { "method": "POST", "path": "/discovery/jobs", "security": "owner", "request": "DiscoveryJobRequest", "response": "JobAccepted" },
+    { "method": "GET", "path": "/sources", "security": "owner", "response": "SourceList" },
+    { "method": "GET", "path": "/sources/{id}", "security": "owner", "response": "SourceDetail" },
+    { "method": "POST", "path": "/sources/{id}/approve", "security": "owner", "request": "SourceApproval", "response": "SourceDetail" },
+    { "method": "POST", "path": "/sources/{id}/scrapes", "security": "owner", "response": "JobAccepted" },
+    { "method": "GET", "path": "/sources/{id}/snapshots", "security": "owner", "response": "SnapshotList" },
+    { "method": "GET", "path": "/datasets/{id}/versions", "security": "owner", "response": "DatasetVersionList" },
+    { "method": "POST", "path": "/dataset-versions/{id}/analysis-runs", "security": "owner", "request": "AnalysisRunRequest", "response": "JobAccepted" },
+    { "method": "GET", "path": "/analysis-runs/{id}", "security": "owner", "response": "AnalysisRun" },
+    { "method": "POST", "path": "/analysis-runs/{id}/packages", "security": "owner", "request": "PackageRequest", "response": "DatasetPackage" },
+    { "method": "POST", "path": "/packages/{id}/publish", "security": "owner", "response": "JobAccepted" },
+    { "method": "POST", "path": "/packages/{id}/sales", "security": "owner", "request": "SaleRequest", "response": "JobAccepted" },
+    { "method": "GET", "path": "/jobs/{id}", "security": "owner", "response": "Job" },
+    { "method": "GET", "path": "/marketplace", "security": "public", "response": "PublicPackageList" },
+    { "method": "GET", "path": "/packages/{id}/public", "security": "public", "response": "PublicPackage" },
+    { "method": "POST", "path": "/auth/siws/challenge", "security": "public", "request": "SiwsChallengeRequest", "response": "SiwsChallenge" },
+    { "method": "POST", "path": "/auth/siws/verify", "security": "public", "request": "SiwsVerification", "response": "WalletSession" },
+    { "method": "POST", "path": "/auth/logout", "security": "wallet", "response": "Empty" },
+    { "method": "GET", "path": "/auth/session", "security": "wallet", "response": "WalletSession" },
+    { "method": "POST", "path": "/sales/{salePda}/purchase-transaction", "security": "wallet", "request": "PurchaseTransactionRequest", "response": "UnsignedPurchaseTransaction" },
+    { "method": "POST", "path": "/purchases/confirm", "security": "wallet", "request": "PurchaseConfirmation", "response": "PurchaseState" },
+    { "method": "GET", "path": "/wallet/access-grants", "security": "wallet", "response": "AccessGrantList" },
+    { "method": "GET", "path": "/dataset/{packageId}/metadata", "security": "wallet_finalized_grant", "response": "ProtectedMetadata" },
+    { "method": "GET", "path": "/dataset/{packageId}/report", "security": "wallet_finalized_grant", "response": "ProtectedArtifact" },
+    { "method": "GET", "path": "/dataset/{packageId}/data", "security": "wallet_finalized_grant", "response": "ProtectedArtifact" },
+    { "method": "GET", "path": "/dataset/{packageId}/export", "security": "wallet_finalized_grant", "response": "ProtectedArtifact" },
+    { "method": "GET", "path": "/packages/{id}/proof", "security": "public", "response": "Proof" },
+    { "method": "POST", "path": "/packages/{id}/proof/verify", "security": "public", "response": "ProofVerification" }
+  ],
+  "schemas": {
+    "SiwsChallenge": {
+      "required": ["message", "nonce", "domain", "uri", "chain_id", "issued_at", "expiration_time"],
+      "additional_properties": false
+    },
+    "PurchaseTransactionRequest": {
+      "required": ["tier"],
+      "forbidden": ["buyer", "amount", "treasury", "grant_pda", "program_id"],
+      "additional_properties": false
+    },
+    "PurchaseConfirmation": {
+      "required": ["transaction_signature"],
+      "additional_properties": false
+    },
+    "PublicPackage": {
+      "allowlist": ["package_id", "title", "description", "coverage", "update_frequency", "target_asset_class", "target_symbol", "alpha_score_summary", "validation_summary", "commitment_address", "sale_address", "price_lamports", "sale_window", "max_seats", "occupied_seats"],
+      "denylist": ["source_url", "raw_alpha", "signal_values", "private_statistics", "object_key", "internal_id", "storage_metadata"]
+    },
+    "ProofVerification": {
+      "required": ["status", "network", "program_id", "dataset_pda", "onchain_hashes", "local_hashes", "matches", "account_owner_valid", "account_status_valid", "rpc_slot", "verified_at"],
+      "status": ["VERIFIED", "MISMATCH", "UNAVAILABLE"],
+      "additional_properties": false
+    },
+    "ProtectedArtifact": {
+      "transport": "backend_stream",
+      "forbidden": ["signed_url", "object_key"],
+      "query": { "version": "optional_positive_u32_bounded_by_grant" }
+    }
+  }
+}

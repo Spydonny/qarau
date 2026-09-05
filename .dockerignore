@@ -1,0 +1,9 @@
+node_modules
+dist
+target
+.git
+.env
+.playwright-cli
+output
+server/data/private
+graphify-out

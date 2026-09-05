@@ -1,0 +1,265 @@
+- generic [ref=f10e2]:
+  - banner [ref=f10e18]:
+    - generic [ref=f10e19]:
+      - link "Qarau / Internal home" [ref=f10e20] [cursor=pointer]:
+        - /url: /discovery
+        - generic [ref=f10e21]: / Internal
+      - navigation [ref=f10e22]:
+        - link "Discovery" [ref=f10e23] [cursor=pointer]:
+          - /url: /discovery
+        - link "Signals" [ref=f10e24] [cursor=pointer]:
+          - /url: /signals
+        - link "Data" [ref=f10e25] [cursor=pointer]:
+          - /url: /data
+        - link "Runs" [ref=f10e26] [cursor=pointer]:
+          - /url: /runs
+      - generic [ref=f10e27]:
+        - generic [ref=f10e28]: Owner / 01
+        - button "End session" [ref=f10e30] [cursor=pointer]
+  - main [ref=f10e31]:
+    - generic [ref=f10e32]:
+      - generic [ref=f10e33]:
+        - generic [ref=f10e34]:
+          - heading "Data universe" [level=1] [ref=f10e35]
+          - paragraph [ref=f10e36]: Authenticated real-world sources, immutable snapshots, and private quantitative evidence.
+        - generic [ref=f10e37]:
+          - generic [ref=f10e38]: REGISTERED/10
+          - generic [ref=f10e39]: CONNECTED/1
+          - generic [ref=f10e40]: VISIBILITY/INTERNAL
+      - generic [ref=f10e41]:
+        - generic [ref=f10e42]:
+          - generic [ref=f10e43]:
+            - paragraph [ref=f10e44]: Bounded source discovery
+            - paragraph [ref=f10e45]: Public catalog adapters cover weather, water, energy, logistics, pollution, agriculture, mobility, retail, and commodity infrastructure. Configured web search adds at most 20 URLs per job and never crawls recursively.
+          - generic [ref=f10e46]:
+            - combobox "Discovery provider" [ref=f10e47]:
+              - option "PUBLIC_CATALOG" [selected]
+              - option "WEB_SEARCH · not configured" [disabled]
+            - button "Discover sources" [ref=f10e48] [cursor=pointer]
+        - generic [ref=f10e49]:
+          - generic [ref=f10e50]:
+            - strong [ref=f10e51]: Rotterdam daily precipitation
+            - generic [ref=f10e52]: OPEN_METEO · Netherlands
+          - generic [ref=f10e53]:
+            - strong [ref=f10e54]: Houston daily mean temperature
+            - generic [ref=f10e55]: OPEN_METEO · United States
+          - generic [ref=f10e56]:
+            - strong [ref=f10e57]: Potomac River daily discharge
+            - generic [ref=f10e58]: USGS · United States
+          - generic [ref=f10e59]:
+            - strong [ref=f10e60]: United States electricity use per capita
+            - generic [ref=f10e61]: WORLD_BANK · United States
+          - generic [ref=f10e62]:
+            - strong [ref=f10e63]: United States liner shipping connectivity
+            - generic [ref=f10e64]: WORLD_BANK · United States
+          - generic [ref=f10e65]:
+            - strong [ref=f10e66]: United States PM2.5 exposure
+            - generic [ref=f10e67]: WORLD_BANK · United States
+          - generic [ref=f10e68]:
+            - strong [ref=f10e69]: United States cereal yield
+            - generic [ref=f10e70]: WORLD_BANK · United States
+          - generic [ref=f10e71]:
+            - strong [ref=f10e72]: United States rail passenger activity
+            - generic [ref=f10e73]: WORLD_BANK · United States
+          - generic [ref=f10e74]:
+            - strong [ref=f10e75]: United States household consumption
+            - generic [ref=f10e76]: WORLD_BANK · United States
+          - generic [ref=f10e77]:
+            - strong [ref=f10e78]: United States ores and metals exports
+            - generic [ref=f10e79]: WORLD_BANK · United States
+      - separator [ref=f10e80]
+      - generic [ref=f10e81]:
+        - generic [ref=f10e82]:
+          - paragraph [ref=f10e83]: Manual source
+          - generic [ref=f10e84]:
+            - button "URL" [ref=f10e85] [cursor=pointer]
+            - button "JSON API" [ref=f10e86] [cursor=pointer]
+        - generic [ref=f10e87]:
+          - textbox "Public source URL" [ref=f10e88]:
+            - /placeholder: https://public-data.example/catalog
+          - textbox "Source name" [ref=f10e89]
+          - textbox "Category" [ref=f10e90]: Other
+          - textbox "Broad region" [ref=f10e91]: Global
+          - combobox "Source sensitivity" [ref=f10e92]:
+            - option "Public source" [selected]
+            - option "Private source"
+            - option "Highly sensitive"
+          - button "Add source" [disabled] [ref=f10e93]
+      - separator [ref=f10e94]
+      - generic [ref=f10e95]:
+        - generic [ref=f10e96]:
+          - paragraph [ref=f10e97]: Private source registry
+          - textbox "Search sources" [ref=f10e98]
+        - generic [ref=f10e99]:
+          - generic [ref=f10e100]:
+            - generic [ref=f10e101]: Category
+            - combobox "Category" [ref=f10e102]:
+              - option "All" [selected]
+              - option "Agriculture"
+              - option "Commodity infrastructure"
+              - option "Energy"
+              - option "Logistics"
+              - option "Mobility"
+              - option "Pollution"
+              - option "Retail"
+              - option "Water"
+              - option "Weather"
+          - generic [ref=f10e103]:
+            - generic [ref=f10e104]: Industry
+            - combobox "Industry" [ref=f10e105]:
+              - option "All" [selected]
+              - option "Cross-industry"
+          - generic [ref=f10e106]:
+            - generic [ref=f10e107]: Geography
+            - combobox "Geography" [ref=f10e108]:
+              - option "All" [selected]
+              - option "Netherlands"
+              - option "United States"
+          - generic [ref=f10e109]:
+            - generic [ref=f10e110]: Source type
+            - combobox "Source type" [ref=f10e111]:
+              - option "All" [selected]
+              - option "PUBLIC_API"
+          - generic [ref=f10e112]:
+            - generic [ref=f10e113]: Resolution
+            - combobox "Resolution" [ref=f10e114]:
+              - option "All" [selected]
+              - option "ANNUAL"
+              - option "DAILY"
+          - generic [ref=f10e115]:
+            - generic [ref=f10e116]: Update
+            - combobox "Update" [ref=f10e117]:
+              - option "All" [selected]
+              - option "ANNUAL"
+              - option "DAILY"
+          - generic [ref=f10e118]:
+            - generic [ref=f10e119]: Pricing
+            - combobox "Pricing" [ref=f10e120]:
+              - option "All" [selected]
+              - option "FREE"
+          - generic [ref=f10e121]:
+            - generic [ref=f10e122]: API
+            - combobox "API" [ref=f10e123]:
+              - option "All" [selected]
+              - option "true"
+              - option "false"
+          - generic [ref=f10e124]:
+            - generic [ref=f10e125]: Numerical history
+            - combobox "Numerical history" [ref=f10e126]:
+              - option "All" [selected]
+              - option "true"
+              - option "false"
+          - generic [ref=f10e127]:
+            - generic [ref=f10e128]: Tested
+            - combobox "Tested" [ref=f10e129]:
+              - option "All" [selected]
+              - option "true"
+              - option "false"
+          - generic [ref=f10e130]:
+            - generic [ref=f10e131]: Committed
+            - combobox "Committed" [ref=f10e132]:
+              - option "All" [selected]
+              - option "true"
+              - option "false"
+          - generic [ref=f10e133]:
+            - generic [ref=f10e134]: Sort
+            - combobox "Sort" [ref=f10e135]:
+              - option "All"
+              - option "candidate" [selected]
+              - option "quality"
+              - option "economicRelevance"
+              - option "novelty"
+              - option "testability"
+        - group [ref=f10e136]:
+          - generic "Score and history thresholds" [ref=f10e137] [cursor=pointer]
+        - generic [ref=f10e138]:
+          - link "SRC / 0d6729da Houston daily mean temperature OPEN_METEO · Weather · United States Score 76 1097 REAL ROWS" [ref=f10e139] [cursor=pointer]:
+            - /url: /sources/src_5d8613a48c734f8fbe420e5b007f57dd
+            - generic [ref=f10e140]:
+              - generic [ref=f10e141]: SRC / 0d6729da
+              - strong [ref=f10e142]: Houston daily mean temperature
+            - generic [ref=f10e143]: OPEN_METEO · Weather · United States
+            - generic [ref=f10e144]: Score 76
+            - generic [ref=f10e145]: 1097 REAL ROWS
+          - link "SRC / f85fd919 United States liner shipping connectivity WORLD_BANK · Logistics · United States Score 56 DISCOVERED" [ref=f10e146] [cursor=pointer]:
+            - /url: /sources/src_04a5223df5424fa68d51fbd5c95ebca6
+            - generic [ref=f10e147]:
+              - generic [ref=f10e148]: SRC / f85fd919
+              - strong [ref=f10e149]: United States liner shipping connectivity
+            - generic [ref=f10e150]: WORLD_BANK · Logistics · United States
+            - generic [ref=f10e151]: Score 56
+            - generic [ref=f10e152]: DISCOVERED
+          - link "SRC / 259501ca United States electricity use per capita WORLD_BANK · Energy · United States Score 55 DISCOVERED" [ref=f10e153] [cursor=pointer]:
+            - /url: /sources/src_038bf7b1a15f4951a2aab91d9c5a97fb
+            - generic [ref=f10e154]:
+              - generic [ref=f10e155]: SRC / 259501ca
+              - strong [ref=f10e156]: United States electricity use per capita
+            - generic [ref=f10e157]: WORLD_BANK · Energy · United States
+            - generic [ref=f10e158]: Score 55
+            - generic [ref=f10e159]: DISCOVERED
+          - link "SRC / 9a9e03a5 United States rail passenger activity WORLD_BANK · Mobility · United States Score 54 DISCOVERED" [ref=f10e160] [cursor=pointer]:
+            - /url: /sources/src_a396d79175f94c888d97aa9a1af05c35
+            - generic [ref=f10e161]:
+              - generic [ref=f10e162]: SRC / 9a9e03a5
+              - strong [ref=f10e163]: United States rail passenger activity
+            - generic [ref=f10e164]: WORLD_BANK · Mobility · United States
+            - generic [ref=f10e165]: Score 54
+            - generic [ref=f10e166]: DISCOVERED
+          - link "SRC / bdafcc0c Rotterdam daily precipitation OPEN_METEO · Weather · Netherlands Score 53 DISCOVERED" [ref=f10e167] [cursor=pointer]:
+            - /url: /sources/src_15a1cdbb8c644a2cae6ead97b20a10b1
+            - generic [ref=f10e168]:
+              - generic [ref=f10e169]: SRC / bdafcc0c
+              - strong [ref=f10e170]: Rotterdam daily precipitation
+            - generic [ref=f10e171]: OPEN_METEO · Weather · Netherlands
+            - generic [ref=f10e172]: Score 53
+            - generic [ref=f10e173]: DISCOVERED
+          - link "SRC / 17170171 Potomac River daily discharge USGS · Water · United States Score 52 DISCOVERED" [ref=f10e174] [cursor=pointer]:
+            - /url: /sources/src_459bcf0008034e6081eee1067add3ca1
+            - generic [ref=f10e175]:
+              - generic [ref=f10e176]: SRC / 17170171
+              - strong [ref=f10e177]: Potomac River daily discharge
+            - generic [ref=f10e178]: USGS · Water · United States
+            - generic [ref=f10e179]: Score 52
+            - generic [ref=f10e180]: DISCOVERED
+          - link "SRC / b82c1324 United States PM2.5 exposure WORLD_BANK · Pollution · United States Score 49 DISCOVERED" [ref=f10e181] [cursor=pointer]:
+            - /url: /sources/src_4f5deb6e0b2045ec9af9e048a066809a
+            - generic [ref=f10e182]:
+              - generic [ref=f10e183]: SRC / b82c1324
+              - strong [ref=f10e184]: United States PM2.5 exposure
+            - generic [ref=f10e185]: WORLD_BANK · Pollution · United States
+            - generic [ref=f10e186]: Score 49
+            - generic [ref=f10e187]: DISCOVERED
+          - link "SRC / e79bbd7d United States ores and metals exports WORLD_BANK · Commodity infrastructure · United States Score 47 DISCOVERED" [ref=f10e188] [cursor=pointer]:
+            - /url: /sources/src_bdedf67c8b2e4a128a7e8822f468e013
+            - generic [ref=f10e189]:
+              - generic [ref=f10e190]: SRC / e79bbd7d
+              - strong [ref=f10e191]: United States ores and metals exports
+            - generic [ref=f10e192]: WORLD_BANK · Commodity infrastructure · United States
+            - generic [ref=f10e193]: Score 47
+            - generic [ref=f10e194]: DISCOVERED
+          - link "SRC / 8137aa63 United States household consumption WORLD_BANK · Retail · United States Score 47 DISCOVERED" [ref=f10e195] [cursor=pointer]:
+            - /url: /sources/src_76a092f57d474769a105372b32fb66bb
+            - generic [ref=f10e196]:
+              - generic [ref=f10e197]: SRC / 8137aa63
+              - strong [ref=f10e198]: United States household consumption
+            - generic [ref=f10e199]: WORLD_BANK · Retail · United States
+            - generic [ref=f10e200]: Score 47
+            - generic [ref=f10e201]: DISCOVERED
+          - link "SRC / 4aa25a82 United States cereal yield WORLD_BANK · Agriculture · United States Score 47 DISCOVERED" [ref=f10e202] [cursor=pointer]:
+            - /url: /sources/src_f8886887464548059fcc76ec8f7f0d02
+            - generic [ref=f10e203]:
+              - generic [ref=f10e204]: SRC / 4aa25a82
+              - strong [ref=f10e205]: United States cereal yield
+            - generic [ref=f10e206]: WORLD_BANK · Agriculture · United States
+            - generic [ref=f10e207]: Score 47
+            - generic [ref=f10e208]: DISCOVERED
+        - generic [ref=f10e209]:
+          - button "Previous" [disabled] [ref=f10e210]
+          - generic [ref=f10e211]: Page 1 / 1
+          - button "Next" [disabled] [ref=f10e212]
+  - contentinfo [ref=f10e213]:
+    - generic [ref=f10e214]:
+      - generic [ref=f10e215]:
+        - img "Qarau" [ref=f10e216]
+        - paragraph [ref=f10e217]: / Internal · Private research system · Real provider snapshots
+      - paragraph [ref=f10e218]: Visibility / internal

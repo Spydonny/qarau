@@ -1,88 +1,9 @@
-import { fingerprint } from "../lib/series";
-
 /* ============================================================
    VISUAL DNA
    Five primitives, reused everywhere: fingerprints, traces,
    lag markers, observation points, system metadata.
    Each one encodes a measured property. None are decorative.
    ============================================================ */
-
-/* ------------------------------------------------------------
-   SIGNAL FINGERPRINT
-   Response strength across leads. Bar height is the measured
-   relationship at that lead; the filled bar is the selected
-   lead; a fragile signal reads as visibly smeared because its
-   response is spread across neighbouring leads.
-   ------------------------------------------------------------ */
-
-export function Fingerprint({
-  signal,
-  width = 104,
-  height = 30,
-  showAxis = false,
-  id,
-}: {
-  signal: { bestLag: number; ic: number; stability: number; seed: number };
-  width?: number;
-  height?: number;
-  showAxis?: boolean;
-  id?: string;
-}) {
-  const bars = fingerprint(signal);
-  const slot = width / bars.length;
-  const barW = Math.max(slot * 0.56, 2);
-  const axisH = showAxis ? 12 : 0;
-  const plotH = height - axisH;
-
-  return (
-    <svg
-      width={width}
-      height={height}
-      style={{ display: "block", overflow: "visible" }}
-      role="img"
-      aria-label={`Response by lead, strongest at ${signal.bestLag} days`}
-      data-fingerprint={id}
-    >
-      {bars.map((b, i) => {
-        const h = Math.max(b.weight * plotH, 1.5);
-        const x = i * slot + (slot - barW) / 2;
-        return (
-          <rect
-            key={b.lag}
-            x={x}
-            y={plotH - h}
-            width={barW}
-            height={h}
-            fill="#FFFFFF"
-            // Opacity carries confidence; only the selected lead is solid.
-            opacity={b.peak ? 1 : 0.16 + b.weight * 0.34}
-          />
-        );
-      })}
-
-      {/* Baseline */}
-      <line x1={0} x2={width} y1={plotH} y2={plotH} stroke="#242424" shapeRendering="crispEdges" />
-
-      {showAxis &&
-        bars.map((b, i) =>
-          b.lag % 2 === 0 ? (
-            <text
-              key={b.lag}
-              x={i * slot + slot / 2}
-              y={height - 1}
-              textAnchor="middle"
-              fill={b.peak ? "#A1A1A1" : "#3A3A3A"}
-              fontSize={8.5}
-              letterSpacing="0.06em"
-              fontFamily="var(--font-mono)"
-            >
-              {b.lag}
-            </text>
-          ) : null,
-        )}
-    </svg>
-  );
-}
 
 /* ------------------------------------------------------------
    SIGNAL TRACE
