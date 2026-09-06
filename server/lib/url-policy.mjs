@@ -76,7 +76,7 @@ export async function requestExternalBytes(input, { maxBytes = 512_000, timeoutM
   const request = url.protocol === "https:" ? httpsRequest : httpRequest;
   const payload = body === undefined ? null : Buffer.from(String(body), "utf8");
   if (!/^(GET|POST)$/.test(method) || (payload && payload.length > 256_000)) throw new Error("invalid_external_request");
-  const allowedHeaders = Object.fromEntries(Object.entries(headers).filter(([key]) => ["authorization", "content-type", "accept"].includes(key.toLowerCase())));
+  const allowedHeaders = Object.fromEntries(Object.entries(headers).filter(([key]) => ["authorization", "content-type", "accept", "x-api-key", "user-agent"].includes(key.toLowerCase())));
   return new Promise((resolve, reject) => {
     const req = request({
       protocol: url.protocol,
@@ -91,6 +91,14 @@ export async function requestExternalBytes(input, { maxBytes = 512_000, timeoutM
       if ((res.statusCode ?? 500) >= 300 && (res.statusCode ?? 500) < 400) {
         res.resume();
         reject(new Error("redirect_blocked"));
+        return;
+      }
+      if (res.statusCode === 429) {
+        res.resume();
+        const parsed = Number(res.headers["retry-after"] ?? 3_600);
+        const error = new Error("external_rate_limited");
+        error.retryAfterSeconds = Number.isInteger(parsed) && parsed >= 1 ? Math.min(parsed, 3_600) : 3_600;
+        reject(error);
         return;
       }
       const type = String(res.headers["content-type"] ?? "");

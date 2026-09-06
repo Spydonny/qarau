@@ -5,6 +5,7 @@ import qarauLockup from "../assets/qarau/primary-lockup-on-dark.png";
 import qarauWordmark from "../assets/qarau/wordmark-on-dark.png";
 
 const LINKS = [
+  { to: "/pipeline", label: "Pipeline" },
   { to: "/discovery", label: "Discovery" },
   { to: "/signals", label: "Signals" },
   { to: "/data", label: "Data" },

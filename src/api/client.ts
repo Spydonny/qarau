@@ -79,6 +79,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body;
 }
 
+/** Public and wallet endpoints have their own server-side authorization model.
+ * They deliberately do not inherit the private-owner CSRF/session state. */
+async function publicRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    credentials: "include",
+    headers: init?.body ? { "Content-Type": "application/json" } : undefined,
+    ...init,
+  });
+  if (!res.ok) {
+    let message = res.statusText;
+    try { message = (await res.json()).error || message; } catch { /* status is enough */ }
+    throw new ApiError(res.status, message);
+  }
+  return res.json() as Promise<T>;
+}
+
 async function waitForJob(job: QarauJob, timeoutMs = 70_000) {
   const started = Date.now();
   let current = job;
@@ -159,4 +175,29 @@ export const api = {
   beginClaim: (id: string, method: string) => request(`/api/qarau/sources/${id}/claims`, { method: "POST", body: JSON.stringify({ method }) }),
   decideClaim: (id: string, claimId: string, decision: "VERIFIED" | "REJECTED") => request(`/api/qarau/sources/${id}/claims/${claimId}/decision`, { method: "POST", body: JSON.stringify({ decision }) }),
   recordAccessReceipt: (id: string, purpose: string) => request(`/api/qarau/sources/${id}/access-receipts`, { method: "POST", body: JSON.stringify({ purpose }) }),
+};
+
+export type V1Job = { id: string; status: "queued" | "running" | "retry_wait" | "completed" | "failed" | "dead_letter"; error_code?: string | null; error_detail?: string | null };
+export type V1Source = { id: string; title: string | null; description: string | null; domain: string; source_type: string; status: string; expected_fields: unknown; temporal_coverage: unknown; expected_update_interval: string | null; reliability: Record<string, unknown>; last_successful_ingestion_at: string | null; next_scrape_at: string | null; discovered_at: string };
+export type V1DatasetVersion = { id: string; dataset_id: string; version: number; status: string; quality_metrics: Record<string, number>; coverage_start: string | null; coverage_end: string | null; frequency: string | null; record_count: number | null; missing_rate: number | null; duplicate_rate: number | null; outlier_rate: number | null; continuity: number | null; sealed_at: string | null };
+
+export const v1 = {
+  sources: () => request<{ sources: V1Source[] }>("/api/v1/sources"),
+  source: (id: string) => request<{ source: V1Source; ingestion_runs: Array<Record<string, unknown>>; versions: V1DatasetVersion[]; analysis_runs: Array<Record<string, unknown>> }>(`/api/v1/sources/${id}`),
+  discovery: (query_group = "general") => request<{ job: V1Job }>("/api/v1/discovery/jobs", { method: "POST", body: JSON.stringify({ query_group }) }),
+  approve: (id: string) => request<{ source: V1Source }>(`/api/v1/sources/${id}/approve`, { method: "POST", body: JSON.stringify({ license_approved: true }) }),
+  scrape: (id: string) => request<{ job: V1Job }>(`/api/v1/sources/${id}/scrapes`, { method: "POST", body: "{}" }),
+  job: (id: string) => request<{ job: V1Job }>(`/api/v1/jobs/${id}`),
+  startAnalysis: (datasetVersionId: string, targetSymbol: string) => request<{ analysis_run: { id: string }; job: V1Job }>(`/api/v1/dataset-versions/${datasetVersionId}/analysis-runs`, { method: "POST", body: JSON.stringify({ target_symbol: targetSymbol }) }),
+  analysis: (id: string) => request<{ analysis_run: Record<string, unknown>; signal_candidates: Array<Record<string, unknown>>; validations: Array<Record<string, unknown>>; leakage_checks: Array<Record<string, unknown>>; alpha_score_components: Array<Record<string, unknown>> }>(`/api/v1/analysis-runs/${id}`),
+  createPackage: (analysisId: string, title: string, maxSeats: number) => request<{ package: { id: string; status: string } }>(`/api/v1/analysis-runs/${analysisId}/packages`, { method: "POST", body: JSON.stringify({ title, max_seats: maxSeats }) }),
+  publishPackage: (packageId: string) => request<{ job: V1Job }>(`/api/v1/packages/${packageId}/publish`, { method: "POST", body: "{}" }),
+  marketplace: () => publicRequest<{ packages: Array<Record<string, unknown>> }>("/api/v1/marketplace"),
+  proof: (packageId: string) => publicRequest<Record<string, unknown>>(`/api/v1/packages/${packageId}/proof`),
+  siwsChallenge: (address: string) => publicRequest<{ nonce: string; message: string }>("/api/v1/auth/siws/challenge", { method: "POST", body: JSON.stringify({ address }) }),
+  siwsVerify: (input: { address: string; nonce: string; signature: string }) => publicRequest<{ wallet: string; expires_at: string }>("/api/v1/auth/siws/verify", { method: "POST", body: JSON.stringify(input) }),
+  walletSession: () => publicRequest<{ wallet: string; idle_expires_at: string; absolute_expires_at: string }>("/api/v1/auth/session"),
+  purchaseTransaction: (salePda: string, tier: "exclusive_early" | "delayed") => publicRequest<{ transaction_base64: string; accessGrantPda: string }>(`/api/v1/sales/${salePda}/purchase-transaction`, { method: "POST", body: JSON.stringify({ tier }) }),
+  confirmPurchase: (transactionSignature: string) => publicRequest<{ package_id: string; grant_pda: string; status: string }>("/api/v1/purchases/confirm", { method: "POST", body: JSON.stringify({ transaction_signature: transactionSignature }) }),
+  accessGrants: () => publicRequest<{ grants: Array<Record<string, unknown>> }>("/api/v1/wallet/access-grants"),
 };

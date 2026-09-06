@@ -10,6 +10,8 @@ import { Data } from "./pages/Data";
 import { Runs } from "./pages/Runs";
 import { SourceDetail } from "./pages/SourceDetail";
 import { Marketplace } from "./pages/Marketplace";
+import { Pipeline, PipelineAnalysis, PipelineSource } from "./pages/Pipeline";
+import { WalletPage } from "./pages/Wallet";
 import qarauLockup from "./assets/qarau/primary-lockup-on-dark.png";
 
 /** Route changes should land at the top of the new page. */
@@ -30,7 +32,7 @@ export default function App() {
 
   // The marketplace never waits for, reads, or infers an owner session.
   if (isPublicRoute) {
-    return <><ScrollToTop /><Routes><Route path="/marketplace/*" element={<Marketplace />} /></Routes></>;
+    return <><ScrollToTop /><Routes><Route path="/marketplace" element={<Marketplace />} /><Route path="/marketplace/wallet" element={<WalletPage />} /></Routes></>;
   }
 
   if (state.status === "checking") {
@@ -69,13 +71,16 @@ export default function App() {
       <Nav />
       <main>
         <Routes>
+          <Route path="/pipeline" element={<Pipeline />} />
+          <Route path="/pipeline/sources/:id" element={<PipelineSource />} />
+          <Route path="/pipeline/analysis/:id" element={<PipelineAnalysis />} />
           <Route path="/discovery" element={<Discovery />} />
           <Route path="/signals" element={<Signals />} />
           <Route path="/signals/:id" element={<SignalDetail />} />
           <Route path="/data" element={<Data />} />
           <Route path="/sources/:id" element={<SourceDetail />} />
           <Route path="/runs" element={<Runs />} />
-          <Route path="*" element={<Navigate to="/discovery" replace />} />
+          <Route path="*" element={<Navigate to="/pipeline" replace />} />
         </Routes>
       </main>
       <Footer />

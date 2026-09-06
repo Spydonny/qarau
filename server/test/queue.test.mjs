@@ -30,7 +30,7 @@ test("Postgres queue is idempotent, lease-safe, retryable, and dead-lettered", {
     const completed = await queue.complete(claimed.id, "scrape-worker", { records: 2 });
     assert.equal(completed.status, "completed");
 
-    const retry = await queue.enqueue({ type: "analysis.run", payload: { datasetVersionId: suffix, marketSnapshotId: suffix, mappingId: suffix }, idempotencyKey: `queue-retry-${suffix}`, maxAttempts: 2 });
+    const retry = await queue.enqueue({ type: "analysis.run", payload: { analysisRunId: suffix }, idempotencyKey: `queue-retry-${suffix}`, maxAttempts: 2 });
     const retryClaimed = await queue.claim({ workerId: "analysis-worker", types: ["analysis.run"] });
     assert.equal(retryClaimed.id, retry.job.id);
     const waiting = await queue.fail(retryClaimed.id, "analysis-worker", { errorCode: "transient", retryDelaySeconds: 0 });

@@ -41,7 +41,21 @@ export class SourceRepository extends Repository {
   }
 
   async listDue(limit = 100, client = this.pool) {
-    const result = await client.query("SELECT * FROM sources WHERE status = 'active' AND next_scrape_at <= now() ORDER BY next_scrape_at, id LIMIT $1", [limit]);
+    const result = await client.query(
+      `SELECT source.*
+       FROM sources AS source
+       WHERE source.status = 'active'
+         AND source.next_scrape_at <= now()
+         AND NOT EXISTS (
+           SELECT 1 FROM jobs AS job
+           WHERE job.type = 'scrape.source'
+             AND job.resource_id = source.id
+             AND job.status IN ('queued', 'running', 'retry_wait')
+         )
+       ORDER BY source.next_scrape_at, source.id
+       LIMIT $1`,
+      [limit],
+    );
     return result.rows;
   }
 }
@@ -120,6 +134,11 @@ export function createRepositories(pool) {
     targetMappings: new Repository(pool, "dataset_target_mappings", ["id", "dataset_id", "target_id", "physical_variable", "economic_mechanism", "affected_asset", "ai_rationale", "confidence", "status", "mapping_version", "approved_by", "approved_at"]),
     marketSnapshots: new Repository(pool, "market_snapshots", ["id", "target_id", "raw_object_key", "normalized_object_key", "raw_hash", "normalized_hash", "retrieved_at", "coverage_start", "coverage_end"]),
     analysisRuns: new Repository(pool, "analysis_runs", ["id", "dataset_version_id", "market_snapshot_id", "mapping_id", "status", "pipeline_version", "manifest_object_key", "manifest_hash", "result_object_key", "result_hash", "report_object_key", "started_at", "completed_at", "error_code", "alpha_score", "score_version", "blocking_leakage"]),
+    signalCandidates: new Repository(pool, "signal_candidates", ["id", "analysis_run_id", "source_column", "transformation", "window_size", "lag", "horizon", "artifact_object_key", "artifact_hash", "parameters", "semantic_fingerprint"]),
+    screeningResults: new Repository(pool, "screening_results", ["signal_candidate_id", "target_id", "horizon", "pearson", "spearman", "mutual_information", "lagged_correlation", "sample_size", "p_value", "q_value"]),
+    validationResults: new Repository(pool, "validation_results", ["id", "analysis_run_id", "signal_candidate_id", "split", "regime_name", "information_coefficient", "directional_accuracy", "return_spread", "sharpe_like", "max_drawdown", "observations", "trades", "stability", "sign", "metrics"]),
+    leakageChecks: new Repository(pool, "leakage_check_results", ["id", "analysis_run_id", "signal_candidate_id", "check_type", "status", "metrics", "score_penalty", "explanation"]),
+    alphaScoreComponents: new Repository(pool, "alpha_score_components", ["analysis_run_id", "component", "raw_value", "normalized_score", "weight", "penalty", "explanation"]),
     packages: new Repository(pool, "dataset_packages", ["id", "dataset_version_id", "analysis_run_id", "status", "public_metadata", "private_metadata_object_key", "access_policy", "access_policy_object_key", "access_policy_hash", "max_seats", "raw_snapshot_hash", "normalized_dataset_hash", "analysis_manifest_hash", "analysis_result_hash", "sealed_at", "created_by"]),
     commitments: new Repository(pool, "blockchain_commitments", ["id", "package_id", "network", "program_id", "dataset_pda", "transaction_signature", "slot", "confirmation_status", "decoded_account", "verified_at", "last_reconciled_at"]),
     sales: new Repository(pool, "sales", ["id", "package_id", "sale_pda", "decoded_state", "observed_slot", "confirmation_status", "stale_after", "last_reconciled_at"]),

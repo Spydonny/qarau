@@ -4,6 +4,9 @@ import { dirname, join } from "node:path";
 import { authBanner, initOwner, registerAuthRoutes, requireCsrf, requireOwner } from "./auth.mjs";
 import { QarauService } from "./qarau-service.mjs";
 import { loadServiceConfig, publicRuntimeSummary } from "./runtime/config.mjs";
+import { createPool } from "./db/pool.mjs";
+import { S3ArtifactStore } from "./storage/artifact-store.mjs";
+import { createV1Router } from "./api/v1.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -77,6 +80,22 @@ app.get("/api/openapi.json", (_req, res) => res.json({
 }));
 
 registerAuthRoutes(app);
+
+// The legacy owner UI remains mounted during migration, while /api/v1 is the
+// durable production path. Its data, sessions and artifacts all come from the
+// integrated services, never the encrypted prototype store.
+if (runtimeConfig.runtimeMode === "integrated") {
+  const integratedPool = createPool(runtimeConfig.values.DATABASE_URL);
+  const integratedArtifacts = S3ArtifactStore.fromEnvironment(process.env);
+  app.use("/api/v1", createV1Router({
+    pool: integratedPool,
+    artifactStore: integratedArtifacts,
+    solana: { rpcUrl: runtimeConfig.values.SOLANA_RPC_URL, programId: runtimeConfig.values.SOLANA_PROGRAM_ID },
+    ownerMiddleware: requireOwner,
+    csrfMiddleware: requireCsrf,
+    publicOrigin: process.env.PUBLIC_APP_ORIGIN ?? "http://localhost:5173",
+  }));
+}
 
 const operationBuckets = new Map();
 function operationLimit(name, maximum, windowMs) {

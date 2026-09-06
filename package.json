@@ -32,7 +32,7 @@
     "start:worker:analysis": "node --env-file-if-exists=.env server/runtime/worker-entry.mjs worker-analysis",
     "start:worker:chain": "node --env-file-if-exists=.env server/runtime/worker-entry.mjs worker-chain",
     "start:scheduler": "node --env-file-if-exists=.env server/runtime/worker-entry.mjs scheduler",
-    "start:publisher-signer": "node --env-file-if-exists=.env server/runtime/worker-entry.mjs publisher-signer"
+    "start:publisher-signer": "node --env-file-if-exists=.env server/signer/server.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1127.0",

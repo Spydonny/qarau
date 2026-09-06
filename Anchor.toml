@@ -9,8 +9,10 @@ skip-lint = false
 qarau_registry = "5n92bg5CrZrt956eXmakgAiqesbfFav7mdNqsfk8Ex3u"
 
 [provider]
-cluster = "Devnet"
-wallet = "server/data/private/anchor-program-keypair.json"
+cluster = "devnet"
+wallet = "/mnt/c/Users/BIGra/Desktop/solana workshop mvp/server/data/private/anchor-program-keypair.json"
 
 [workspace]
 members = ["programs/qarau_registry"]
+
+[hooks]

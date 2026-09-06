@@ -16,8 +16,8 @@ const positivePort = z.coerce.number().int().min(1).max(65_535);
 const secret = z.string().min(16);
 
 const requiredByRole = Object.freeze({
-  api: ["DATABASE_URL", "S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "WALLET_SESSION_SECRET", "SOLANA_RPC_URL", "SOLANA_PROGRAM_ID"],
-  "worker-discovery": ["DATABASE_URL"],
+  api: ["DATABASE_URL", "S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "SOURCE_URL_ENCRYPTION_KEY", "WALLET_SESSION_SECRET", "SOLANA_RPC_URL", "SOLANA_PROGRAM_ID"],
+  "worker-discovery": ["DATABASE_URL", "SOURCE_URL_ENCRYPTION_KEY"],
   "worker-scrape": ["DATABASE_URL", "S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "SOURCE_URL_ENCRYPTION_KEY"],
   "worker-analysis": ["DATABASE_URL", "S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"],
   "worker-chain": ["DATABASE_URL", "S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "SOLANA_RPC_URL", "SOLANA_PROGRAM_ID", "PUBLISHER_SIGNER_URL", "PUBLISHER_SIGNER_TOKEN"],
@@ -60,7 +60,7 @@ export function loadServiceConfig(role, environment = process.env) {
 
   const defaultPort = serviceRole === "api" ? 8787 : 8790 + SERVICE_ROLES.indexOf(serviceRole);
   const healthPort = positivePort.parse(environment.SERVICE_HEALTH_PORT ?? environment.API_PORT ?? defaultPort);
-  return Object.freeze({ role: serviceRole, runtimeMode, healthPort, values: Object.freeze(values) });
+  return Object.freeze({ role: serviceRole, runtimeMode, healthPort, executeJobs: environment.QARAU_WORKER_EXECUTE === "true", values: Object.freeze(values) });
 }
 
 export function publicRuntimeSummary(config) {
@@ -68,6 +68,6 @@ export function publicRuntimeSummary(config) {
     role: config.role,
     mode: config.runtimeMode,
     persistence: config.runtimeMode === "integrated" ? "postgresql-and-private-object-store" : "encrypted-local-migration-mode",
-    capabilities: config.role === "api" ? "prototype-compatible" : "foundation-only",
+    capabilities: config.role === "api" ? "prototype-compatible" : config.executeJobs ? "worker-execution-active" : "foundation-only",
   });
 }

@@ -46,7 +46,7 @@ test("scrape handler creates sealed immutable versions and records no-change", {
     const handler = createScrapeSourceHandler({ pool, artifactStore: artifacts, sourceUrlKey: sourceKey, requestBytes: async () => ({ url: "https://example.test/series", contentType: "application/json", headers: { etag: "fixture" }, bytes: Buffer.from(JSON.stringify([{ timestamp: "2025-01-01", value: 1 }, { timestamp: "2025-01-02", value: 2 }])) }) });
 
     const run = async (scheduledFor) => {
-      const enqueued = await queue.enqueue({ type: "scrape.source", payload: { sourceId: source.id, reason: "manual", scheduledFor }, idempotencyKey: `scrape-handler-${suffix}-${scheduledFor}` });
+      await queue.enqueue({ type: "scrape.source", payload: { sourceId: source.id, reason: "manual", scheduledFor }, idempotencyKey: `scrape-handler-${suffix}-${scheduledFor}` });
       const job = await queue.claim({ workerId: "scrape-test", types: ["scrape.source"] });
       const result = await handler(job);
       await queue.complete(job.id, "scrape-test", result);

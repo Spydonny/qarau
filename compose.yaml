@@ -56,6 +56,7 @@ services:
       QARAU_CHAIN_S3_SECRET_KEY: qarau-chain-secret-local
     volumes:
       - ./infra/minio/init.sh:/init.sh:ro
+      - ./infra/minio/api-policy.json:/api-policy.json:ro
     entrypoint: ["/bin/sh", "/init.sh"]
     restart: "no"
     networks: [private]
@@ -66,6 +67,7 @@ services:
     command: ["npm", "run", "start:api"]
     environment:
       <<: *integrated
+      COOKIE_SECURE: "false"
       API_PORT: 8787
       DATABASE_URL: postgresql://qarau_api:qarau-api-local-only@postgres:5432/qarau
       S3_ENDPOINT: http://object-storage:9000
@@ -74,6 +76,7 @@ services:
       S3_ACCESS_KEY_ID: qarau-api-local
       S3_SECRET_ACCESS_KEY: qarau-api-secret-local
       S3_REQUIRE_SSE: "false"
+      SOURCE_URL_ENCRYPTION_KEY: ${SOURCE_URL_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       WALLET_SESSION_SECRET: ${WALLET_SESSION_SECRET:-local-wallet-session-secret-change-me}
       SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.devnet.solana.com}
       SOLANA_PROGRAM_ID: ${SOLANA_PROGRAM_ID:-5n92bg5CrZrt956eXmakgAiqesbfFav7mdNqsfk8Ex3u}
@@ -112,8 +115,12 @@ services:
     environment:
       <<: *integrated
       DATABASE_URL: postgresql://qarau_worker:qarau-worker-local-only@postgres:5432/qarau
+      SOURCE_URL_ENCRYPTION_KEY: ${SOURCE_URL_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      DATA_GOV_API_KEY: ${DATA_GOV_API_KEY:-DEMO_KEY}
+      QARAU_WORKER_EXECUTE: "true"
       SERVICE_HEALTH_PORT: 8791
     depends_on: { postgres: { condition: service_healthy } }
+    networks: [private, egress]
 
   worker-scrape:
     <<: *app
@@ -131,6 +138,7 @@ services:
       QARAU_WORKER_EXECUTE: "true"
       SERVICE_HEALTH_PORT: 8792
     depends_on: { postgres: { condition: service_healthy }, object-storage-init: { condition: service_completed_successfully } }
+    networks: [private, egress]
 
   worker-analysis:
     <<: *app
@@ -144,8 +152,12 @@ services:
       S3_ACCESS_KEY_ID: qarau-worker-local
       S3_SECRET_ACCESS_KEY: qarau-worker-secret-local
       S3_REQUIRE_SSE: "false"
+      QARAU_WORKER_EXECUTE: "true"
       SERVICE_HEALTH_PORT: 8793
     depends_on: { postgres: { condition: service_healthy }, object-storage-init: { condition: service_completed_successfully } }
+    # This worker retrieves public market targets (Coinbase/ECB); it needs
+    # outbound access but remains off the public application network.
+    networks: [private, egress]
 
   worker-chain:
     <<: *app
@@ -163,6 +175,7 @@ services:
       SOLANA_PROGRAM_ID: ${SOLANA_PROGRAM_ID:-5n92bg5CrZrt956eXmakgAiqesbfFav7mdNqsfk8Ex3u}
       PUBLISHER_SIGNER_URL: http://publisher-signer:8796
       PUBLISHER_SIGNER_TOKEN: ${PUBLISHER_SIGNER_TOKEN:-local-publisher-token-change-me}
+      QARAU_WORKER_EXECUTE: "true"
       SERVICE_HEALTH_PORT: 8794
     depends_on: { postgres: { condition: service_healthy }, object-storage-init: { condition: service_completed_successfully }, publisher-signer: { condition: service_started } }
 
@@ -172,8 +185,18 @@ services:
     environment:
       <<: *integrated
       DATABASE_URL: postgresql://qarau_worker:qarau-worker-local-only@postgres:5432/qarau
+      QARAU_WORKER_EXECUTE: "true"
       SERVICE_HEALTH_PORT: 8795
     depends_on: { postgres: { condition: service_healthy } }
+
+  publisher-signer-init:
+    <<: *app
+    command: ["sh", "-c", "mkdir -p /run/qarau-signer && chown node:node /run/qarau-signer && chmod 700 /run/qarau-signer"]
+    user: root
+    restart: "no"
+    volumes:
+      - qarau-signer:/run/qarau-signer
+    networks: [private]
 
   publisher-signer:
     <<: *app
@@ -187,9 +210,14 @@ services:
       SERVICE_HEALTH_PORT: 8796
     volumes:
       - qarau-signer:/run/qarau-signer
+    networks: [private, egress]
+    depends_on:
+      publisher-signer-init:
+        condition: service_completed_successfully
 
 networks:
   public:
+  egress:
   private:
     internal: true
 

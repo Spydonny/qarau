@@ -107,6 +107,8 @@ export const SOURCE_CATALOG = Object.freeze([
 ]);
 
 export const MARKET_TARGETS = Object.freeze([
+  { symbol: "BTC-USD", provider: "COINBASE", assetClass: "crypto", name: "Bitcoin / US dollar", configured: true },
+  { symbol: "ETH-USD", provider: "COINBASE", assetClass: "crypto", name: "Ether / US dollar", configured: true },
   { symbol: "EURUSD", provider: "ECB", name: "Euro / US dollar", configured: true },
   { symbol: "EURGBP", provider: "ECB", name: "Euro / British pound", configured: true },
   { symbol: "EURJPY", provider: "ECB", name: "Euro / Japanese yen", configured: true },
@@ -227,6 +229,16 @@ export function parseAlphaVantage(payload) {
   }).sort((left, right) => left.timestamp.localeCompare(right.timestamp));
 }
 
+export function parseCoinbaseCandles(payload) {
+  if (!Array.isArray(payload)) throw new Error("invalid_coinbase_response");
+  return payload.flatMap((candle) => {
+    if (!Array.isArray(candle) || candle.length < 5 || !Number.isFinite(Number(candle[0]))) return [];
+    // Coinbase candles are [time, low, high, open, close, volume].
+    const price = finite(candle[4]);
+    return price === null || price <= 0 ? [] : [{ timestamp: new Date(Number(candle[0]) * 1_000).toISOString(), price }];
+  }).sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+}
+
 function dateRange(years = 3, endDelayDays = 7) {
   const end = new Date(Date.now() - endDelayDays * DAY_MS);
   const start = new Date(end);
@@ -234,8 +246,8 @@ function dateRange(years = 3, endDelayDays = 7) {
   return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
 }
 
-async function fetchJson(url) {
-  const response = await fetchExternalText(url, { maxBytes: MAX_PROVIDER_BYTES, timeoutMs: 20_000 });
+async function fetchJson(url, headers = {}) {
+  const response = await fetchExternalText(url, { maxBytes: MAX_PROVIDER_BYTES, timeoutMs: 20_000, headers });
   try { return { response, payload: JSON.parse(response.text) }; }
   catch { throw new Error("invalid_provider_json"); }
 }
@@ -278,6 +290,18 @@ export async function loadSourceDataset(catalogKey) {
 }
 
 export async function loadMarketTarget(symbol, { equitySymbol } = {}) {
+  if (["BTC-USD", "ETH-USD"].includes(symbol)) {
+    // Coinbase permits up to 300 daily candles per unauthenticated request.
+    const end = new Date();
+    const start = new Date(end.getTime() - 299 * DAY_MS);
+    const url = new URL(`https://api.exchange.coinbase.com/products/${symbol}/candles`);
+    for (const [key, value] of Object.entries({ granularity: "86400", start: start.toISOString(), end: end.toISOString() })) url.searchParams.set(key, value);
+    // Coinbase rejects requests without a descriptive user agent.
+    const { payload } = await fetchJson(url, { "User-Agent": "QARAU-MVP/1.0" });
+    const rows = parseCoinbaseCandles(payload);
+    if (!rows.length) throw new Error("provider_returned_no_rows");
+    return { rows, provider: "COINBASE", assetClass: "crypto", symbol, sourceUrl: url.toString(), retrievedAt: new Date().toISOString() };
+  }
   const currency = { EURUSD: "USD", EURGBP: "GBP", EURJPY: "JPY", EURCHF: "CHF" }[symbol];
   if (currency) {
     const range = dateRange(4, 0);
@@ -286,7 +310,7 @@ export async function loadMarketTarget(symbol, { equitySymbol } = {}) {
     const response = await fetchExternalText(url, { maxBytes: MAX_PROVIDER_BYTES, timeoutMs: 20_000 });
     const rows = parseEcbCsv(response.text);
     if (!rows.length) throw new Error("provider_returned_no_rows");
-    return { rows, provider: "ECB", symbol, sourceUrl: url.toString(), retrievedAt: new Date().toISOString() };
+    return { rows, provider: "ECB", assetClass: "fx", symbol, sourceUrl: url.toString(), retrievedAt: new Date().toISOString() };
   }
   if (symbol !== "CUSTOM_EQUITY") throw new Error("unknown_market_target");
   const apiKey = process.env.ALPHA_VANTAGE_API_KEY;

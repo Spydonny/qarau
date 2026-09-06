@@ -17,7 +17,10 @@ pub fn domain_hash(domain: &[u8], bytes: &[u8]) -> [u8; 32] {
 }
 
 pub fn uuid_bytes(value: &str) -> Result<[u8; 16], &'static str> {
-    let compact: String = value.chars().filter(|character| *character != '-').collect();
+    let compact: String = value
+        .chars()
+        .filter(|character| *character != '-')
+        .collect();
     if compact.len() != 32 || !compact.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err("invalid_uuid");
     }
@@ -42,22 +45,34 @@ mod tests {
 
     #[test]
     fn matches_node_access_policy_hash_fixture() {
-        let policy: serde_json::Value = serde_json::from_slice(include_bytes!("../../../contracts/fixtures/access-policy-v1.json")).unwrap();
+        let policy: serde_json::Value = serde_json::from_slice(include_bytes!(
+            "../../../contracts/fixtures/access-policy-v1.json"
+        ))
+        .unwrap();
         let canonical = serde_json::to_vec(&policy).unwrap();
         assert_eq!(canonical, ACCESS_POLICY_CANONICAL.as_bytes());
         assert_eq!(
             domain_hash(ACCESS_POLICY_DOMAIN, &canonical),
-            [95, 80, 129, 208, 156, 166, 50, 81, 227, 237, 92, 143, 228, 102, 235, 241, 20, 0, 20, 63, 51, 114, 191, 42, 23, 138, 147, 2, 15, 116, 111, 206]
+            [
+                95, 80, 129, 208, 156, 166, 50, 81, 227, 237, 92, 143, 228, 102, 235, 241, 20, 0,
+                20, 63, 51, 114, 191, 42, 23, 138, 147, 2, 15, 116, 111, 206
+            ]
         );
     }
 
     #[test]
     fn matches_node_analysis_manifest_hash_fixture() {
-        let manifest: serde_json::Value = serde_json::from_slice(include_bytes!("../../../contracts/fixtures/analysis-manifest-v1.json")).unwrap();
+        let manifest: serde_json::Value = serde_json::from_slice(include_bytes!(
+            "../../../contracts/fixtures/analysis-manifest-v1.json"
+        ))
+        .unwrap();
         let canonical = serde_json::to_vec(&manifest).unwrap();
         assert_eq!(
             domain_hash(ANALYSIS_MANIFEST_DOMAIN, &canonical),
-            [66, 50, 51, 128, 207, 137, 82, 139, 18, 242, 83, 163, 113, 58, 31, 251, 159, 57, 10, 206, 173, 122, 103, 119, 95, 172, 100, 255, 118, 19, 14, 31]
+            [
+                66, 50, 51, 128, 207, 137, 82, 139, 18, 242, 83, 163, 113, 58, 31, 251, 159, 57,
+                10, 206, 173, 122, 103, 119, 95, 172, 100, 255, 118, 19, 14, 31
+            ]
         );
     }
 
@@ -65,15 +80,27 @@ mod tests {
     fn matches_node_dataset_id_hash_fixture() {
         assert_eq!(
             dataset_id_hash("018f5c52-4b2e-7ad1-8f7c-222222222222").unwrap(),
-            [33, 109, 220, 0, 150, 104, 3, 171, 139, 73, 199, 90, 133, 4, 215, 158, 86, 113, 79, 130, 223, 64, 91, 80, 31, 212, 184, 107, 134, 150, 59, 155]
+            [
+                33, 109, 220, 0, 150, 104, 3, 171, 139, 73, 199, 90, 133, 4, 215, 158, 86, 113, 79,
+                130, 223, 64, 91, 80, 31, 212, 184, 107, 134, 150, 59, 155
+            ]
         );
     }
 
     #[test]
     fn frozen_account_spaces_include_anchor_discriminators() {
         assert_eq!(REGISTRY_SPACE, 8 + 32 + 32 + 2 + 1 + 1);
-        assert_eq!(DATASET_COMMITMENT_SPACE, 8 + 32 + 4 + (32 * 5) + 32 + 8 + 4 + 1 + 4 + 8 + 8 + 1 + 1);
-        assert_eq!(SALE_SPACE, 8 + 32 + 32 + 8 + 8 + 1 + 8 + 8 + 8 + 32 + 4 + 4 + 1 + 1 + 1);
-        assert_eq!(ACCESS_GRANT_SPACE, 8 + 32 + 32 + 32 + 32 + 4 + 1 + 8 + 8 + 1 + 1);
+        assert_eq!(
+            DATASET_COMMITMENT_SPACE,
+            8 + 32 + 4 + (32 * 5) + 32 + 8 + 4 + 1 + 4 + 8 + 8 + 1 + 1
+        );
+        assert_eq!(
+            SALE_SPACE,
+            8 + 32 + 32 + 8 + 8 + 1 + 8 + 8 + 8 + 32 + 4 + 4 + 1 + 1 + 1
+        );
+        assert_eq!(
+            ACCESS_GRANT_SPACE,
+            8 + 32 + 32 + 32 + 32 + 4 + 1 + 8 + 8 + 1 + 1
+        );
     }
 }

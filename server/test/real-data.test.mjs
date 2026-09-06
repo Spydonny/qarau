@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  parseCoinbaseCandles,
   parseEcbCsv,
   parseOpenMeteo,
   parseUsgs,
@@ -27,4 +28,11 @@ test("World Bank and ECB parsers normalize published values", () => {
   assert.deepEqual(parseWorldBank([{}, [{ date: "2025", value: null }, { date: "2024", value: 42 }]]), [{ timestamp: "2024-01-01T00:00:00.000Z", value: 42, availableAt: "2024-12-31T00:00:00.000Z" }]);
   const csv = "KEY,TIME_PERIOD,OBS_VALUE\nEXR,2025-01-02,1.04\n";
   assert.deepEqual(parseEcbCsv(csv), [{ timestamp: "2025-01-02T00:00:00.000Z", price: 1.04 }]);
+});
+
+test("Coinbase parser produces sorted daily crypto closes", () => {
+  const rows = parseCoinbaseCandles([[1_735_776_000, 90_000, 95_000, 91_000, 93_000, 1], [1_735_689_600, 89_000, 92_000, 90_000, 91_000, 1]]);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].price, 91_000);
+  assert.ok(rows[0].timestamp < rows[1].timestamp);
 });

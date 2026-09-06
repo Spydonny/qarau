@@ -1,6 +1,23 @@
 # QARAU MVP implementation status
 
-Last updated: 2026-09-05
+Last updated: 2026-09-06
+
+## Current delivery verdict
+
+The integrated MVP implementation is complete and locally operational: durable
+discovery, ingestion, immutable artifacts, analysis, package sealing, owner and
+wallet APIs, the browser workflow, and the Anchor program are present and
+verified. The live off-chain path has been exercised with a public Chicago
+weather source and a real Coinbase BTC/USD snapshot.
+
+The only intentionally unexecuted acceptance path is a Devnet deployment and a
+real wallet-signed purchase. That path would publish a program and create real
+on-chain transactions, so it requires a separately authorized publisher wallet,
+funding, deployed program ID, and human wallet signature. It is not represented
+as a completed proof merely because the local code and contract tests pass.
+
+See `docs/proofpilot-review.md` for the evidence snapshot and explicit release
+gate.
 
 This file tracks execution of `QARAU_MVP_INTEGRATION_PLAN.md`. A work item is complete only after its exit checks pass; documentation or scaffolding alone does not close a later production capability.
 
@@ -74,10 +91,9 @@ This file tracks execution of `QARAU_MVP_INTEGRATION_PLAN.md`. A work item is co
 
 ## Latest automated verification
 
-- Node test suite: 45 passing locally; PostgreSQL migrations, repositories, queue, and the scrape workflow pass on an isolated database.
-- Rust/Anchor unit suite: 7 passing.
-- TypeScript/Vite production build: passing.
-- Cargo check: passing.
-- Dependency audit: 0 known vulnerabilities.
-- Compose schema validation: passing.
-- Docker image and Compose topology: built and running; PostgreSQL/MinIO/API health checks pass and all private service readiness endpoints return 200.
+- Node test suite: 57 passing, 5 database-dependent tests skipped when no test database is configured.
+- Live PostgreSQL/MinIO integration suite: discovery, scrape/versioning, and analysis handler all passed (3/3).
+- Rust/Anchor: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, and 7 contract tests passed.
+- TypeScript/Vite production build and Compose configuration validation: passed.
+- Dependency audit: 0 known production vulnerabilities.
+- Local Compose topology: API, PostgreSQL, MinIO, publisher signer, scheduler, and all four workers healthy/active.

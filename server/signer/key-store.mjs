@@ -19,3 +19,17 @@ export async function operationalSigner() {
     return created;
   }
 }
+
+/** The isolated publisher role is the only process permitted to create this key. */
+export async function publisherSigner(keyPath = process.env.SOLANA_PUBLISHER_KEY_PATH) {
+  if (!keyPath) throw new Error("publisher_key_path_required");
+  try { return await createKeyPairSignerFromBytes(new Uint8Array(JSON.parse(await readFile(keyPath, "utf8")))); }
+  catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+    await mkdir(dirname(keyPath), { recursive: true });
+    const created = await generateKeyPairSigner(true);
+    await writeKeyPairSigner(created, keyPath);
+    await chmod(keyPath, 0o600).catch(() => {});
+    return created;
+  }
+}
