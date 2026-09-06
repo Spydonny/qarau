@@ -106,15 +106,38 @@ async function packageContext(pool, packageId) {
   return result.rows[0] ?? null;
 }
 
-async function chooseProtectedVersion(pool, context, grant) {
+export async function chooseProtectedVersion(pool, context, grant) {
   const policy = context.access_policy;
   if (grant.tier === 1) return context;
   if (grant.tier !== 2) throw new Error("grant_tier_invalid");
   if (Math.floor(Date.now() / 1_000) < grant.grantedAt + Number(policy.delayed.release_seconds)) throw new Error("delayed_access_not_released");
   const requested = context.dataset_version - Number(policy.delayed.version_lag);
-  const version = await pool.query("SELECT * FROM dataset_versions WHERE dataset_id = $1 AND version <= $2 AND status = 'sealed' ORDER BY version DESC LIMIT 1", [context.dataset_id, requested]);
+  const version = await pool.query("SELECT id, version, normalized_object_key FROM dataset_versions WHERE dataset_id = $1 AND version <= $2 AND status = 'sealed' ORDER BY version DESC LIMIT 1", [context.dataset_id, requested]);
   if (!version.rowCount) throw new Error("delayed_version_unavailable");
-  return { ...context, normalized_object_key: version.rows[0].normalized_object_key, dataset_version: version.rows[0].version };
+  const analysis = await pool.query(
+    `SELECT run.id AS analysis_run_id, run.report_object_key,
+            (SELECT candidate.artifact_object_key FROM signal_candidates AS candidate
+             WHERE candidate.analysis_run_id = run.id
+             ORDER BY candidate.id LIMIT 1) AS derived_signal_object_key
+     FROM analysis_runs AS run
+     WHERE run.dataset_version_id = $1
+       AND run.status = 'completed'
+       AND run.blocking_leakage = false
+       AND run.report_object_key IS NOT NULL
+     ORDER BY run.completed_at DESC NULLS LAST, run.created_at DESC, run.id DESC
+     LIMIT 1`,
+    [version.rows[0].id],
+  );
+  const artifacts = analysis.rows[0];
+  if (!artifacts?.report_object_key || !artifacts?.derived_signal_object_key) throw new Error("delayed_artifacts_unavailable");
+  return {
+    ...context,
+    normalized_object_key: version.rows[0].normalized_object_key,
+    dataset_version: version.rows[0].version,
+    analysis_run_id: artifacts.analysis_run_id,
+    report_object_key: artifacts.report_object_key,
+    derived_signal_object_key: artifacts.derived_signal_object_key,
+  };
 }
 
 export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, csrfMiddleware, publicOrigin }) {
