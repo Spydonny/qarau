@@ -1,17 +1,11 @@
 import { useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { useSession } from "./api/session";
+import { useSession } from "./api/useSession";
 import { Footer, Nav } from "./components/Nav";
 import { Authenticate } from "./pages/Authenticate";
-import { Discovery } from "./pages/Discovery";
-import { Signals } from "./pages/Signals";
-import { SignalDetail } from "./pages/SignalDetail";
-import { Data } from "./pages/Data";
-import { Runs } from "./pages/Runs";
-import { SourceDetail } from "./pages/SourceDetail";
-import { Marketplace } from "./pages/Marketplace";
+import { Opportunities } from "./pages/Opportunities";
 import { Pipeline, PipelineAnalysis, PipelineSource } from "./pages/Pipeline";
-import { WalletPage } from "./pages/Wallet";
+import { MyAccessPage } from "./pages/MyAccess";
 import qarauLockup from "./assets/qarau/primary-lockup-on-dark.png";
 
 /** Route changes should land at the top of the new page. */
@@ -28,11 +22,31 @@ function ScrollToTop() {
 export default function App() {
   const { state } = useSession();
   const { pathname } = useLocation();
-  const isPublicRoute = pathname === "/marketplace" || pathname.startsWith("/marketplace/");
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
 
-  // The marketplace never waits for, reads, or infers an owner session.
-  if (isPublicRoute) {
-    return <><ScrollToTop /><Routes><Route path="/marketplace" element={<Marketplace />} /><Route path="/marketplace/wallet" element={<WalletPage />} /></Routes></>;
+  // Public visitors never pass through the owner gate. Old internal URLs are
+  // retained only as redirects into the explicitly named admin namespace.
+  if (!isAdminRoute) {
+    return (
+      <>
+        <ScrollToTop />
+        <Routes>
+          <Route path="/" element={<Navigate to="/opportunities" replace />} />
+          <Route path="/discover" element={<Opportunities />} />
+          <Route path="/opportunities" element={<Opportunities />} />
+          <Route path="/opportunities/:id" element={<Opportunities />} />
+          <Route path="/auctions" element={<Opportunities />} />
+          <Route path="/my-access" element={<MyAccessPage />} />
+          <Route path="/pipeline/*" element={<Navigate to="/admin/pipeline" replace />} />
+          <Route path="/discovery" element={<Navigate to="/admin/pipeline" replace />} />
+          <Route path="/signals/*" element={<Navigate to="/admin/pipeline" replace />} />
+          <Route path="/data" element={<Navigate to="/admin/pipeline" replace />} />
+          <Route path="/sources/*" element={<Navigate to="/admin/pipeline" replace />} />
+          <Route path="/runs" element={<Navigate to="/admin/pipeline" replace />} />
+          <Route path="*" element={<Navigate to="/opportunities" replace />} />
+        </Routes>
+      </>
+    );
   }
 
   if (state.status === "checking") {
@@ -59,7 +73,7 @@ export default function App() {
       <>
         <ScrollToTop />
         <Routes>
-          <Route path="*" element={<Authenticate />} />
+          <Route path="/admin/*" element={<Authenticate />} />
         </Routes>
       </>
     );
@@ -71,16 +85,11 @@ export default function App() {
       <Nav />
       <main>
         <Routes>
-          <Route path="/pipeline" element={<Pipeline />} />
-          <Route path="/pipeline/sources/:id" element={<PipelineSource />} />
-          <Route path="/pipeline/analysis/:id" element={<PipelineAnalysis />} />
-          <Route path="/discovery" element={<Discovery />} />
-          <Route path="/signals" element={<Signals />} />
-          <Route path="/signals/:id" element={<SignalDetail />} />
-          <Route path="/data" element={<Data />} />
-          <Route path="/sources/:id" element={<SourceDetail />} />
-          <Route path="/runs" element={<Runs />} />
-          <Route path="*" element={<Navigate to="/pipeline" replace />} />
+          <Route path="/admin" element={<Navigate to="/admin/pipeline" replace />} />
+          <Route path="/admin/pipeline" element={<Pipeline />} />
+          <Route path="/admin/pipeline/sources/:id" element={<PipelineSource />} />
+          <Route path="/admin/pipeline/analysis/:id" element={<PipelineAnalysis />} />
+          <Route path="/admin/*" element={<Navigate to="/admin/pipeline" replace />} />
         </Routes>
       </main>
       <Footer />

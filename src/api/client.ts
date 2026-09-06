@@ -178,26 +178,35 @@ export const api = {
 };
 
 export type V1Job = { id: string; status: "queued" | "running" | "retry_wait" | "completed" | "failed" | "dead_letter"; error_code?: string | null; error_detail?: string | null };
-export type V1Source = { id: string; title: string | null; description: string | null; domain: string; source_type: string; status: string; expected_fields: unknown; temporal_coverage: unknown; expected_update_interval: string | null; reliability: Record<string, unknown>; last_successful_ingestion_at: string | null; next_scrape_at: string | null; discovered_at: string };
+export type V1Source = { id: string; title: string | null; description: string | null; domain: string; source_type: string; status: string; expected_fields: unknown; temporal_coverage: unknown; expected_update_interval: string | null; reliability: Record<string, unknown>; license_status?: string; redistribution_rights?: boolean; derivative_rights?: boolean; screening_score?: number | null; screening_passed?: boolean | null; rejection_reasons?: string[]; screening?: { gates: Record<string, { status?: string; evidence?: string }>; score: number; passed: boolean; rejection_reasons: string[]; screened_at: string } | null; last_successful_ingestion_at: string | null; next_scrape_at: string | null; discovered_at: string };
 export type V1DatasetVersion = { id: string; dataset_id: string; version: number; status: string; quality_metrics: Record<string, number>; coverage_start: string | null; coverage_end: string | null; frequency: string | null; record_count: number | null; missing_rate: number | null; duplicate_rate: number | null; outlier_rate: number | null; continuity: number | null; sealed_at: string | null };
+export type V1Package = { id: string; status: string; public_metadata?: Record<string, unknown>; max_seats?: number; sealed_at?: string | null };
+export type V1AnalysisPage = { analysis_run: Record<string, unknown>; signal_candidates: Array<Record<string, unknown>>; validations: Array<Record<string, unknown>>; leakage_checks: Array<Record<string, unknown>>; alpha_score_components: Array<Record<string, unknown>>; package: V1Package | null; pagination: { limit: number; offset: number; total: number; has_previous: boolean; has_next: boolean } };
 
 export const v1 = {
   sources: () => request<{ sources: V1Source[] }>("/api/v1/sources"),
   source: (id: string) => request<{ source: V1Source; ingestion_runs: Array<Record<string, unknown>>; versions: V1DatasetVersion[]; analysis_runs: Array<Record<string, unknown>> }>(`/api/v1/sources/${id}`),
   discovery: (query_group = "general") => request<{ job: V1Job }>("/api/v1/discovery/jobs", { method: "POST", body: JSON.stringify({ query_group }) }),
-  approve: (id: string) => request<{ source: V1Source }>(`/api/v1/sources/${id}/approve`, { method: "POST", body: JSON.stringify({ license_approved: true }) }),
+  approve: (id: string, rights: { redistribution_rights: boolean; derivative_rights: boolean }) => request<{ source: V1Source }>(`/api/v1/sources/${id}/approve`, { method: "POST", body: JSON.stringify({ license_approved: true, ...rights }) }),
   scrape: (id: string) => request<{ job: V1Job }>(`/api/v1/sources/${id}/scrapes`, { method: "POST", body: "{}" }),
   job: (id: string) => request<{ job: V1Job }>(`/api/v1/jobs/${id}`),
   startAnalysis: (datasetVersionId: string, targetSymbol: string) => request<{ analysis_run: { id: string }; job: V1Job }>(`/api/v1/dataset-versions/${datasetVersionId}/analysis-runs`, { method: "POST", body: JSON.stringify({ target_symbol: targetSymbol }) }),
-  analysis: (id: string) => request<{ analysis_run: Record<string, unknown>; signal_candidates: Array<Record<string, unknown>>; validations: Array<Record<string, unknown>>; leakage_checks: Array<Record<string, unknown>>; alpha_score_components: Array<Record<string, unknown>> }>(`/api/v1/analysis-runs/${id}`),
-  createPackage: (analysisId: string, title: string, maxSeats: number) => request<{ package: { id: string; status: string } }>(`/api/v1/analysis-runs/${analysisId}/packages`, { method: "POST", body: JSON.stringify({ title, max_seats: maxSeats }) }),
-  publishPackage: (packageId: string) => request<{ job: V1Job }>(`/api/v1/packages/${packageId}/publish`, { method: "POST", body: "{}" }),
-  marketplace: () => publicRequest<{ packages: Array<Record<string, unknown>> }>("/api/v1/marketplace"),
+  analysis: (id: string, offset = 0, limit = 20) => request<V1AnalysisPage>(`/api/v1/analysis-runs/${id}?offset=${offset}&limit=${limit}`),
+  createPackage: (analysisId: string, title: string, maxSeats: number) => request<{ package: V1Package; existing: boolean }>(`/api/v1/analysis-runs/${analysisId}/packages`, { method: "POST", body: JSON.stringify({ title, max_seats: maxSeats }) }),
+  publishPackage: (packageId: string, terms: { opens_at?: string; closes_at?: string; minimum_bid_lamports?: number; max_winners?: number } = {}) => request<{ job: V1Job }>(`/api/v1/packages/${packageId}/publish`, { method: "POST", body: JSON.stringify(terms) }),
+  settleAccessRound: (accessRoundId: string) => request<{ job: V1Job }>(`/api/v1/access-rounds/${accessRoundId}/settle`, { method: "POST", body: "{}" }),
+  funnel: () => request<RunLanes>("/api/v1/cockpit/funnel"),
+  opportunities: () => publicRequest<{ packages: Array<Record<string, unknown>> }>("/api/v1/opportunities"),
+  opportunity: (packageId: string) => publicRequest<{ package: Record<string, unknown> }>(`/api/v1/opportunities/${packageId}`),
   proof: (packageId: string) => publicRequest<Record<string, unknown>>(`/api/v1/packages/${packageId}/proof`),
   siwsChallenge: (address: string) => publicRequest<{ nonce: string; message: string }>("/api/v1/auth/siws/challenge", { method: "POST", body: JSON.stringify({ address }) }),
   siwsVerify: (input: { address: string; nonce: string; signature: string }) => publicRequest<{ wallet: string; expires_at: string }>("/api/v1/auth/siws/verify", { method: "POST", body: JSON.stringify(input) }),
   walletSession: () => publicRequest<{ wallet: string; idle_expires_at: string; absolute_expires_at: string }>("/api/v1/auth/session"),
-  purchaseTransaction: (salePda: string, tier: "exclusive_early" | "delayed") => publicRequest<{ transaction_base64: string; accessGrantPda: string }>(`/api/v1/sales/${salePda}/purchase-transaction`, { method: "POST", body: JSON.stringify({ tier }) }),
-  confirmPurchase: (transactionSignature: string) => publicRequest<{ package_id: string; grant_pda: string; status: string }>("/api/v1/purchases/confirm", { method: "POST", body: JSON.stringify({ transaction_signature: transactionSignature }) }),
-  accessGrants: () => publicRequest<{ grants: Array<Record<string, unknown>> }>("/api/v1/wallet/access-grants"),
+  bidTransaction: (roundPda: string, tier: "exclusive_early" | "delayed", amountLamports: number) => publicRequest<{ transaction_base64: string; bidPda: string }>(`/api/v1/access-rounds/${roundPda}/bid-transaction`, { method: "POST", body: JSON.stringify({ tier, amount_lamports: amountLamports }) }),
+  confirmBid: (roundPda: string, transactionSignature: string) => publicRequest<{ package_id: string; bid_pda: string; status: string }>("/api/v1/bids/confirm", { method: "POST", body: JSON.stringify({ round_pda: roundPda, transaction_signature: transactionSignature }) }),
+  claimTransaction: (roundPda: string) => publicRequest<{ transaction_base64: string; entitlementPda: string }>(`/api/v1/access-rounds/${roundPda}/claim-transaction`, { method: "POST", body: "{}" }),
+  confirmEntitlement: (roundPda: string, transactionSignature: string) => publicRequest<{ package_id: string; entitlement_pda: string; status: string }>("/api/v1/entitlements/confirm", { method: "POST", body: JSON.stringify({ round_pda: roundPda, transaction_signature: transactionSignature }) }),
+  refundTransaction: (roundPda: string) => publicRequest<{ transaction_base64: string }>(`/api/v1/access-rounds/${roundPda}/refund-transaction`, { method: "POST", body: "{}" }),
+  accessEntitlements: () => publicRequest<{ entitlements: Array<Record<string, unknown>> }>("/api/v1/wallet/access-entitlements"),
+  auctionPositions: () => publicRequest<{ positions: Array<Record<string, unknown>> }>("/api/v1/wallet/auction-positions"),
 };

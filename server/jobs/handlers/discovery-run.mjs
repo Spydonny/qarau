@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { createRepositories } from "../../db/repositories/index.mjs";
 import { discoverCandidates } from "../../discovery/providers.mjs";
+import { screenCandidate } from "../../discovery/screening.mjs";
 import { encryptSourceUrl } from "../../security/source-url.mjs";
 
 function canonicalUrl(value) {
@@ -48,7 +49,7 @@ export function createDiscoveryRunHandler({ pool, sourceUrlKey = process.env.SOU
             temporal_coverage: JSON.stringify(candidate.temporalCoverage ?? {}),
             expected_update_interval: intervalFor(candidate.updateFrequency),
             status: "candidate",
-            reliability: JSON.stringify({ discovery_provider: candidate.discoveryProvider, discovery_query: candidate.discoveredQuery ?? job.payload.queryGroup }),
+            reliability: JSON.stringify({ discovery_provider: candidate.discoveryProvider, discovery_query: candidate.discoveredQuery ?? job.payload.queryGroup, category: candidate.category ?? "Other", region: candidate.region ?? "Unspecified", screening_version: 1 }),
             discovered_at: new Date(),
           });
           created += 1;
@@ -58,6 +59,11 @@ export function createDiscoveryRunHandler({ pool, sourceUrlKey = process.env.SOU
           deduplicated += 1;
         }
       } else deduplicated += 1;
+      const screening = screenCandidate(candidate, { unique: true });
+      await pool.query(
+        "INSERT INTO source_screenings (source_id, gates, score, passed, rejection_reasons) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (source_id) DO NOTHING",
+        [source.id, screening.gates, screening.score, screening.passed, screening.rejectionReasons],
+      );
       await repositories.discoveries.create({
         source_id: source.id,
         provider: candidate.discoveryProvider ?? "AUTOMATED_WEB",

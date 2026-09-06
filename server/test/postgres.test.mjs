@@ -1,18 +1,26 @@
 import assert from "node:assert/strict";
+import { readdir } from "node:fs/promises";
 import test from "node:test";
 import { createPool } from "../db/pool.mjs";
 import { migrate } from "../db/migrate.mjs";
 import { createRepositories } from "../db/repositories/index.mjs";
+import { testDatabaseUrl } from "./database-url.mjs";
 
-const enabled = Boolean(process.env.TEST_DATABASE_URL);
+const databaseUrl = testDatabaseUrl();
+const enabled = Boolean(databaseUrl);
 const hash = (byte) => Buffer.alloc(32, byte);
 
 test("PostgreSQL migration is idempotent and repository invariants hold", { skip: !enabled }, async () => {
-  const pool = createPool(process.env.TEST_DATABASE_URL);
+  const pool = createPool(databaseUrl);
   try {
     const first = await migrate(pool);
     const second = await migrate(pool);
-    assert.equal(first.total, 2);
+    // Test files share one database and migrate in parallel, so `applied` may
+    // legitimately be empty here. What must hold is that the runner sees every
+    // migration on disk and that a second pass is a no-op. Counting the files
+    // keeps this from breaking every time a migration is added.
+    const migrationFiles = (await readdir(new URL("../db/migrations/", import.meta.url))).filter((name) => /^\d+_[a-z0-9_]+\.sql$/.test(name));
+    assert.equal(first.total, migrationFiles.length);
     assert.deepEqual(second.applied, []);
 
     const repositories = createRepositories(pool);

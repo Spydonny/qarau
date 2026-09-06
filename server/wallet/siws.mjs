@@ -31,7 +31,7 @@ function base58Decode(input) {
 }
 
 export function formatSiwsMessage({ domain, address, uri, chainId, nonce, issuedAt, expirationTime }) {
-  return `${domain} wants you to sign in with your Solana account:\n${address}\n\nSign in to QARAU marketplace.\n\nURI: ${uri}\nVersion: 1\nChain ID: ${chainId}\nNonce: ${nonce}\nIssued At: ${issuedAt}\nExpiration Time: ${expirationTime}`;
+  return `${domain} wants you to sign in with your Solana account:\n${address}\n\nSign in to QARAU research access.\n\nURI: ${uri}\nVersion: 1\nChain ID: ${chainId}\nNonce: ${nonce}\nIssued At: ${issuedAt}\nExpiration Time: ${expirationTime}`;
 }
 
 export function verifySolanaSignature({ address, message, signature }) {

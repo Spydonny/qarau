@@ -1,27 +1,13 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import { useLocation } from "react-router-dom";
 import { api, onUnauthorized } from "./client";
-import type { Session } from "./types";
-
-type State =
-  | { status: "checking" }
-  | { status: "anonymous" }
-  | { status: "owner"; session: Session };
-
-type Ctx = {
-  state: State;
-  authenticate: (password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-};
-
-const SessionContext = createContext<Ctx | null>(null);
+import { SessionContext, type SessionState } from "./session-context";
 
 /**
  * Holds whatever the server says about the current session.
@@ -31,9 +17,12 @@ const SessionContext = createContext<Ctx | null>(null);
  * grants nothing.
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<State>({ status: "checking" });
+  const { pathname } = useLocation();
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
+  const [state, setState] = useState<SessionState>({ status: "checking" });
 
   useEffect(() => {
+    if (!isAdminRoute) return;
     let cancelled = false;
     api
       .session()
@@ -46,7 +35,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isAdminRoute]);
 
   // An expired session surfaces as a 401 on whatever request happens next.
   useEffect(() => onUnauthorized(() => setState({ status: "anonymous" })), []);
@@ -70,10 +59,4 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
-}
-
-export function useSession() {
-  const ctx = useContext(SessionContext);
-  if (!ctx) throw new Error("useSession must be used inside SessionProvider");
-  return ctx;
 }

@@ -12,7 +12,11 @@ BEGIN
 END
 $$;
 
-GRANT CONNECT ON DATABASE qarau TO qarau_api, qarau_worker, qarau_chain;
+DO $$
+BEGIN
+  EXECUTE format('GRANT CONNECT ON DATABASE %I TO qarau_api, qarau_worker, qarau_chain', current_database());
+END
+$$;
 GRANT USAGE ON SCHEMA public TO qarau_api, qarau_worker, qarau_chain;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE qarau_owner IN SCHEMA public
@@ -21,3 +25,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE qarau_owner IN SCHEMA public
   GRANT SELECT, INSERT, UPDATE ON TABLES TO qarau_chain;
 ALTER DEFAULT PRIVILEGES FOR ROLE qarau_owner IN SCHEMA public
   GRANT USAGE, SELECT ON SEQUENCES TO qarau_api, qarau_worker, qarau_chain;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO qarau_api, qarau_worker;
+GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO qarau_chain;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO qarau_api, qarau_worker, qarau_chain;

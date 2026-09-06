@@ -8,6 +8,9 @@ pub const REGISTRY_SPACE: usize = 76;
 pub const DATASET_COMMITMENT_SPACE: usize = 271;
 pub const SALE_SPACE: usize = 156;
 pub const ACCESS_GRANT_SPACE: usize = 159;
+pub const ACCESS_ROUND_SPACE: usize = 1696;
+pub const BID_SPACE: usize = 91;
+pub const ACCESS_ENTITLEMENT_SPACE: usize = 167;
 
 pub fn domain_hash(domain: &[u8], bytes: &[u8]) -> [u8; 32] {
     let mut hasher = Sha256::new();
@@ -101,6 +104,15 @@ mod tests {
         assert_eq!(
             ACCESS_GRANT_SPACE,
             8 + 32 + 32 + 32 + 32 + 4 + 1 + 8 + 8 + 1 + 1
+        );
+        assert_eq!(
+            ACCESS_ROUND_SPACE,
+            8 + 32 + 32 + 8 + 8 + 8 + 4 + 4 + 4 + 4 + 1 + 1 + 1 + 8 + 4 + (32 * 49) + 1
+        );
+        assert_eq!(BID_SPACE, 8 + 32 + 32 + 8 + 1 + 8 + 1 + 1);
+        assert_eq!(
+            ACCESS_ENTITLEMENT_SPACE,
+            8 + 32 + 32 + 32 + 32 + 4 + 1 + 8 + 8 + 8 + 1 + 1
         );
     }
 }

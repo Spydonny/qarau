@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from "react";
-import { useSession } from "../api/session";
+import { Link } from "react-router-dom";
+import { useSession } from "../api/useSession";
 import { ApiError } from "../api/client";
 import qarauLockup from "../assets/qarau/primary-lockup-on-dark.png";
 
 /**
- * The front door. No registration, no reset, no marketing — the only action
- * available to an unauthenticated visitor is to present a credential.
+ * Explicit admin entry. Public visitors enter through the research catalog and
+ * never encounter this owner-only authentication surface.
  */
 export function Authenticate() {
   const { authenticate } = useSession();
@@ -46,13 +47,13 @@ export function Authenticate() {
           />
         </div>
 
-        <h1 className="display-sm gate-title">Welcome to new era of quant</h1>
+        <h1 className="display-sm gate-title">QARAU Research Console</h1>
 
-        <p className="gate-sub">Owner access to private market signals.</p>
+        <p className="gate-sub">Private workspace for sources, analysis, and publication.</p>
 
         <form className="gate-form" onSubmit={submit}>
           <label className="meta" htmlFor="owner-key">
-            Access / owner only
+            Owner only / secure access
           </label>
           <div className="gate-field">
             <input
@@ -76,6 +77,9 @@ export function Authenticate() {
             </p>
           )}
         </form>
+        <Link className="btn-ghost" to="/opportunities">
+          Return to public research <span className="arrow">→</span>
+        </Link>
       </div>
     </div>
   );

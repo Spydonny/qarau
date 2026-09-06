@@ -2,12 +2,13 @@ import { createHash } from "node:crypto";
 import { createRepositories } from "../../db/repositories/index.mjs";
 import { HASH_DOMAINS, canonicalJsonBytes, canonicalJsonlBytes, hashBytes } from "../../domain/canonical-artifacts.mjs";
 import { runQuantitativeAnalysis } from "../../analysis/quantitative.mjs";
+import { analyzeSource } from "../../analyzers/index.mjs";
 
 async function readStream(stream) { const chunks = []; for await (const chunk of stream) chunks.push(Buffer.from(chunk)); return Buffer.concat(chunks); }
 async function readJsonl(store, key) { return (await readStream(await store.getStream(key))).toString("utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line)); }
 function rawHash(bytes) { return createHash("sha256").update(bytes).digest("hex"); }
 
-function safeResult(result) {
+function safeResult(result, interpretation) {
   return {
     pipeline_version: result.pipelineVersion,
     signal_count: result.signalCount,
@@ -23,6 +24,7 @@ function safeResult(result) {
       checks: result.best.checks,
       alpha: result.best.alpha,
     } : null,
+    interpretation,
   };
 }
 
@@ -48,6 +50,21 @@ export function createAnalysisRunHandler({ pool, artifactStore }) {
       const normalizedRows = await readJsonl(artifactStore, version.normalized_object_key);
       const marketRows = (await readJsonl(artifactStore, market.normalized_object_key)).map((row) => ({ timestamp: row.timestamp, price: row.price ?? row.values?.price }));
       const result = runQuantitativeAnalysis({ normalizedRows, marketRows, quality: version.quality_metrics });
+      const sourceResult = await pool.query("SELECT source.title, source.description, source.source_type, source.expected_update_interval, source.temporal_coverage, source.reliability FROM sources AS source JOIN datasets AS dataset ON dataset.source_id = source.id WHERE dataset.id = $1", [version.dataset_id]);
+      const source = sourceResult.rows[0] ?? {};
+      const interpretation = await analyzeSource({
+        private: { summary: source.description ?? source.title ?? "Physical-world dataset" },
+        measurementDescription: source.description ?? source.title ?? "Physical-world dataset",
+        category: source.reliability?.category ?? "Other",
+        region: source.reliability?.region ?? "Unspecified",
+        sourceType: source.source_type ?? "unknown",
+        temporalResolution: source.expected_update_interval ?? "unknown",
+        updateFrequency: source.expected_update_interval ?? "unknown",
+        latency: "unknown",
+        historicalDepth: 0,
+        historicalDataAvailable: true,
+        sensitivityMode: "PUBLIC_SOURCE",
+      });
       const manifest = {
         analysis_id: analysisRun.id,
         dataset_version_id: version.id,
@@ -59,7 +76,7 @@ export function createAnalysisRunHandler({ pool, artifactStore }) {
         settings: result.settings,
       };
       const manifestBytes = canonicalJsonBytes(manifest);
-      const report = safeResult(result);
+      const report = safeResult(result, interpretation);
       const resultBytes = Buffer.from(JSON.stringify(report), "utf8");
       const manifestHash = hashBytes(HASH_DOMAINS.analysisManifest, manifestBytes);
       const resultHash = hashBytes(HASH_DOMAINS.analysisResult, resultBytes);

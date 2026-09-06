@@ -125,6 +125,7 @@ export function createRepositories(pool) {
   return Object.freeze({
     jobs: new JobRepository(pool),
     sources: new SourceRepository(pool),
+    sourceScreenings: new Repository(pool, "source_screenings", ["id", "source_id", "gates", "score", "passed", "rejection_reasons", "screened_at"]),
     discoveries: new Repository(pool, "source_discoveries", ["id", "source_id", "provider", "query", "result_rank", "result_url_hash", "provider_payload_hash", "discovered_at"]),
     ingestionRuns: new Repository(pool, "ingestion_runs", ["id", "source_id", "job_id", "status", "attempt", "started_at", "retrieved_at", "source_timestamp", "finished_at", "http_status", "result_status", "response_headers", "content_type", "content_length", "content_hash", "raw_object_key", "parser_name", "parser_version", "record_count", "change_type", "previous_run_id", "error_code", "error_detail"]),
     sourceSnapshots: new Repository(pool, "source_snapshots", ["id", "source_id", "ingestion_run_id", "raw_object_key", "raw_hash", "retrieval_timestamp", "source_timestamp"]),
@@ -141,6 +142,9 @@ export function createRepositories(pool) {
     alphaScoreComponents: new Repository(pool, "alpha_score_components", ["analysis_run_id", "component", "raw_value", "normalized_score", "weight", "penalty", "explanation"]),
     packages: new Repository(pool, "dataset_packages", ["id", "dataset_version_id", "analysis_run_id", "status", "public_metadata", "private_metadata_object_key", "access_policy", "access_policy_object_key", "access_policy_hash", "max_seats", "raw_snapshot_hash", "normalized_dataset_hash", "analysis_manifest_hash", "analysis_result_hash", "sealed_at", "created_by"]),
     commitments: new Repository(pool, "blockchain_commitments", ["id", "package_id", "network", "program_id", "dataset_pda", "transaction_signature", "slot", "confirmation_status", "decoded_account", "verified_at", "last_reconciled_at"]),
+    accessRounds: new Repository(pool, "access_rounds", ["id", "package_id", "network", "program_id", "round_pda", "opens_at", "closes_at", "minimum_bid_lamports", "max_winners", "enabled_tier_mask", "settlement_rule", "state", "bid_count", "winners_count", "clearing_price_lamports", "transaction_signature", "slot", "confirmation_status", "decoded_state", "last_reconciled_at", "created_at"]),
+    auctionBids: new Repository(pool, "auction_bids", ["id", "access_round_id", "bid_pda", "wallet_id", "amount_lamports", "tier", "status", "transaction_signature", "observed_slot", "placed_at", "last_reconciled_at"]),
+    accessEntitlements: new Repository(pool, "access_entitlement_cache", ["entitlement_pda", "access_round_id", "package_id", "wallet_id", "tier", "bid_amount_lamports", "granted_at", "expires_at", "status", "transaction_signature", "slot", "last_reconciled_at"]),
     sales: new Repository(pool, "sales", ["id", "package_id", "sale_pda", "decoded_state", "observed_slot", "confirmation_status", "stale_after", "last_reconciled_at"]),
     purchases: new Repository(pool, "purchases", ["id", "transaction_signature", "package_id", "sale_pda", "commitment_pda", "grant_pda", "wallet_id", "tier", "expected_lamports", "decoded_lamports", "observed_slot", "finalized_slot", "block_time", "confirmation_status", "validation_verdict", "validation_errors"]),
     audits: new AuditRepository(pool),

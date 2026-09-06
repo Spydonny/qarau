@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { AccountRole, address, appendTransactionMessageInstruction, createSolanaRpc, createTransactionMessage, getAddressEncoder, getBase64EncodedWireTransaction, pipe, setTransactionMessageFeePayerSigner, setTransactionMessageLifetimeUsingBlockhash, signTransactionMessageWithSigners } from "@solana/kit";
-import { deriveDatasetCommitmentPda, deriveRegistryPda, deriveSalePda, readDatasetCommitment } from "../solana/registry-client.mjs";
+import { deriveAccessRoundPda, deriveDatasetCommitmentPda, deriveRegistryPda, readAccessRound, readDatasetCommitment } from "../solana/registry-client.mjs";
 
 const SYSTEM = "11111111111111111111111111111111";
 function discriminator(name) { return createHash("sha256").update(`global:${name}`).digest().subarray(0, 8); }
@@ -14,7 +14,7 @@ function instruction(programId, name, accounts, data) { return { programAddress:
 export function createCommitmentData(input) {
   return Buffer.concat([bytes(input.datasetIdHash, "dataset_id_hash"), u32(input.version), bytes(input.rawSnapshotHash, "raw_snapshot_hash"), bytes(input.normalizedDatasetHash, "normalized_dataset_hash"), bytes(input.analysisManifestHash, "analysis_manifest_hash"), bytes(input.analysisResultHash, "analysis_result_hash"), bytes(input.accessPolicyHash, "access_policy_hash"), u32(input.maxSeats), Buffer.from([input.allowedTierMask]), u32(input.delayedVersionLag), i64(input.delayedReleaseSeconds), i64(input.grantDurationSeconds)]);
 }
-export function createSaleData(input) { return Buffer.concat([i64(input.startsAt), i64(input.endsAt), u64(input.earlyPriceLamports), u64(input.delayedPriceLamports), Buffer.from([input.enabledTierMask])]); }
+export function createAccessRoundData(input) { return Buffer.concat([i64(input.opensAt), i64(input.closesAt), u64(input.minimumBidLamports), u32(input.maxWinners), Buffer.from([input.enabledTierMask])]); }
 
 async function confirm(rpc, signature, timeoutMs = 45_000) {
   const deadline = Date.now() + timeoutMs;
@@ -35,21 +35,33 @@ async function send(rpc, signer, instructions) {
   return { signature, ...(await confirm(rpc, signature)) };
 }
 
-/** Restricted publisher operation: initialize (once), commit, then create sale. */
+/** Restricted publisher operation: initialize (once), commit, then open an access round. */
 export async function publishPackageOnChain({ signer, rpcUrl, programId, input }) {
   if (!signer || !rpcUrl || !programId || process.env.DISABLE_SOLANA_SIGNING === "true") throw new Error("publisher_signing_disabled");
   if (!/devnet|localhost|127\.0\.0\.1/i.test(rpcUrl)) throw new Error("unsupported_solana_network");
   const rpc = createSolanaRpc(rpcUrl); const registryPda = await deriveRegistryPda(programId);
-  const commitmentPda = await deriveDatasetCommitmentPda(programId, bytes(input.datasetIdHash, "dataset_id_hash"), input.version); const salePda = await deriveSalePda(programId, commitmentPda);
+  const commitmentPda = await deriveDatasetCommitmentPda(programId, bytes(input.datasetIdHash, "dataset_id_hash"), input.version); const accessRoundPda = await deriveAccessRoundPda(programId, commitmentPda);
   const treasury = input.treasury ?? signer.address;
   const registry = await rpc.getAccountInfo(registryPda, { commitment: "finalized", encoding: "base64" }).send();
   const completed = [];
   if (!registry.value) completed.push(await send(rpc, signer, [instruction(programId, "initialize", [{ address: registryPda, role: AccountRole.WRITABLE }, { address: signer.address, role: AccountRole.WRITABLE_SIGNER }, { address: address(SYSTEM), role: AccountRole.READONLY }], publicKey(treasury))]));
   const existing = await readDatasetCommitment({ rpcUrl, programId, datasetPda: commitmentPda });
   if (!existing) completed.push(await send(rpc, signer, [instruction(programId, "create_dataset_commitment", [{ address: registryPda, role: AccountRole.READONLY }, { address: commitmentPda, role: AccountRole.WRITABLE }, { address: signer.address, role: AccountRole.WRITABLE_SIGNER }, { address: address(SYSTEM), role: AccountRole.READONLY }], createCommitmentData(input))]));
-  const sale = await rpc.getAccountInfo(salePda, { commitment: "finalized", encoding: "base64" }).send();
-  if (!sale.value) completed.push(await send(rpc, signer, [instruction(programId, "create_sale", [{ address: registryPda, role: AccountRole.READONLY }, { address: commitmentPda, role: AccountRole.READONLY }, { address: salePda, role: AccountRole.WRITABLE }, { address: address(treasury), role: AccountRole.WRITABLE }, { address: signer.address, role: AccountRole.WRITABLE_SIGNER }, { address: signer.address, role: AccountRole.READONLY }, { address: address(SYSTEM), role: AccountRole.READONLY }], createSaleData(input))]));
-  return Object.freeze({ registryPda, commitmentPda, salePda, treasury, transactions: completed, finalizedSlot: completed.at(-1)?.slot ?? Number((await rpc.getSlot({ commitment: "finalized" }).send())) });
+  const round = await rpc.getAccountInfo(accessRoundPda, { commitment: "finalized", encoding: "base64" }).send();
+  if (!round.value) completed.push(await send(rpc, signer, [instruction(programId, "create_access_round", [{ address: registryPda, role: AccountRole.READONLY }, { address: commitmentPda, role: AccountRole.READONLY }, { address: accessRoundPda, role: AccountRole.WRITABLE }, { address: address(treasury), role: AccountRole.WRITABLE }, { address: signer.address, role: AccountRole.WRITABLE_SIGNER }, { address: signer.address, role: AccountRole.READONLY }, { address: address(SYSTEM), role: AccountRole.READONLY }], createAccessRoundData(input))]));
+  return Object.freeze({ registryPda, commitmentPda, accessRoundPda, treasury, transactions: completed, finalizedSlot: completed.at(-1)?.slot ?? Number((await rpc.getSlot({ commitment: "finalized" }).send())) });
 }
 
-export const publisherInternals = Object.freeze({ createCommitmentData, createSaleData, discriminator });
+export async function settleAccessRoundOnChain({ signer, rpcUrl, programId, roundPda }) {
+  if (!signer || !rpcUrl || !programId || process.env.DISABLE_SOLANA_SIGNING === "true") throw new Error("publisher_signing_disabled");
+  if (!/devnet|localhost|127\.0\.0\.1/i.test(rpcUrl)) throw new Error("unsupported_solana_network");
+  const current = await readAccessRound({ rpcUrl, programId, roundPda });
+  if (!current) throw new Error("access_round_not_found");
+  if (current.status === 2) return Object.freeze({ roundPda, finalizedSlot: current.slot, transaction: null, alreadySettled: true });
+  const rpc = createSolanaRpc(rpcUrl);
+  const registryPda = await deriveRegistryPda(programId);
+  const transaction = await send(rpc, signer, [instruction(programId, "settle_access_round", [{ address: registryPda, role: AccountRole.READONLY }, { address: address(roundPda), role: AccountRole.WRITABLE }, { address: signer.address, role: AccountRole.READONLY_SIGNER }], Buffer.alloc(0))]);
+  return Object.freeze({ roundPda, finalizedSlot: transaction.slot, transaction, alreadySettled: false });
+}
+
+export const publisherInternals = Object.freeze({ createCommitmentData, createAccessRoundData, discriminator });

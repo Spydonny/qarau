@@ -6,25 +6,26 @@
 
 ## Result
 
-The implementation is release-ready for a local/integrated MVP demonstration.
-The off-chain path was exercised against real public data and persisted durable,
-immutable artifacts. No claim is made that the live on-chain steps have passed:
-publishing to Devnet and making a purchase require separate explicit authority
-to deploy and sign transactions.
+**ProofPilot verdict: `ready` for a local integrated
+demonstration.** The off-chain path was exercised against real public data and
+persisted durable, immutable artifacts. The Anchor program is deployed on
+Devnet. A live commitment, sale, wallet purchase and AccessGrant are not claimed
+until their transactions and authorization outcomes are captured.
 
 ## Evidence snapshot
 
 | Capability | Evidence | Result |
 |---|---|---|
-| Source discovery | 18 candidate JSON sources created from the Socrata public catalog after Data.gov rate limiting | Pass |
+| Source discovery | 18 non-fixture sources retained from the public catalog; all `example.test` records were removed | Pass |
 | Live source ingestion | Chicago Beach Weather Stations JSON API retrieved, exact body stored, parsed and sealed as immutable dataset versions 1 and 2 | Pass |
 | Market target | Coinbase BTC/USD daily candles retrieved (299 rows) and stored as a frozen market snapshot | Pass |
 | Quantitative validation | Run `dbd445e1-2ef4-4168-abc6-d87236ecbb6b`: 1,176 signal candidates, 6,696 validation records, 7,056 leakage checks; completed without blocking leakage | Pass |
 | Package sealing | Package `281d1ccf-dad7-4346-a1df-8d3516fe3c7e` sealed with raw, normalized, manifest, result, and access-policy hashes | Pass |
 | Runtime reliability | Long analysis job lease renewal is unit-tested; worker is idempotent on redelivery after durable completion | Pass |
-| Tests and build | Node 57/57 active tests passed (5 DB-dependent skips); database integration 3/3; Rust format, Clippy, and 7 contract tests passed | Pass |
+| Tests and build | Node and isolated PostgreSQL integration suite 68/68; Rust format, Clippy, and 7 contract tests passed | Pass |
 | Dependency/runtime checks | Production dependency audit reported 0 vulnerabilities; Docker Compose API and dependent services healthy | Pass |
-| Devnet commitment, sale, and wallet payment | Not run: would deploy/publish and require real wallet signing | Explicit external gate |
+| Devnet program deployment | Program `63VZwKUPcWqo2JwpQHLxT4HHgQsMREpERZg3DpfSnnMw` deployed in slot `493885442`; owned by BPF Upgradeable Loader with the separate publisher authority | Pass |
+| Devnet registry, commitment, sale, and wallet payment | Not run: these create live product state and require a buyer wallet signature | Explicit external gate |
 
 ## Source evidence
 
@@ -44,15 +45,26 @@ to deploy and sign transactions.
    acknowledge a redelivered completed analysis safely.
 5. Source scheduling now excludes a source that already has a queued/running
    scrape, avoiding a scheduler/manual-scrape race.
+6. Owner navigation and routes now use only the durable `/api/v1` pipeline;
+   legacy screens redirect instead of presenting a second store.
+7. Analysis payloads are paginated and leakage checks aggregated; the package
+   state is restored on reload and package creation is idempotent.
+8. The production image includes frozen contracts, and CSP no longer blocks
+   the document font/style path.
+9. Database tests run against a disposable `qarau_test` instance and refuse a
+   production-shaped database URL. Existing `example.test` fixtures were removed
+   with a scoped transactional cleanup.
+10. Devnet publication resumes from `publication_failed`, reuses the original
+    sale parameters, and deduplicates active publish jobs.
 
 ## Release gate
 
-**Success threshold for the final on-chain acceptance:** on Devnet, a deployed
-program accepts one authorized commitment, creates an active sale, accepts a
+**Success threshold for the final on-chain acceptance:** on Devnet, the deployed
+program initializes its registry, accepts one authorized commitment, creates an active sale, accepts a
 wallet-signed payment within its seat/time/tier limits, writes an access grant,
 and allows only that grant holder to retrieve the permitted package version.
 
-**Stop condition:** do not publish, fund, or request any wallet signature until
-the operator explicitly authorizes Devnet deployment and provides a separate
-human-controlled test wallet flow. If commitment hashes or access checks differ
-from the local sealed package, stop and investigate rather than releasing.
+**Stop condition:** do not create a sale or request any buyer wallet signature
+until the operator explicitly authorizes that live acceptance flow and provides
+a separate human-controlled test wallet. If commitment hashes or access checks
+differ from the local sealed package, stop and investigate rather than releasing.

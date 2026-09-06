@@ -56,7 +56,9 @@ app.use((_req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
   res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("Content-Security-Policy", "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+  // The React UI uses style properties for layout. Permit styles only; scripts,
+  // connections, images, frames and every other resource remain self-only.
+  res.setHeader("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
   // Nothing here should ever be cached by an intermediary.
   res.setHeader("Cache-Control", "no-store");
   next();

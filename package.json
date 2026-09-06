@@ -15,6 +15,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test": "node --test server/test/*.test.mjs",
+    "test:integration": "node scripts/run-integration-tests.mjs",
     "test:contracts": "node --test server/test/contracts.test.mjs server/test/runtime-config.test.mjs",
     "db:migrate": "node --env-file-if-exists=.env server/db/migrate.mjs",
     "db:import-legacy": "node --env-file-if-exists=.env server/db/import-legacy.mjs",

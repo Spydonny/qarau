@@ -9,10 +9,10 @@ import "./internal.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <SessionProvider>
-      <BrowserRouter>
+    <BrowserRouter>
+      <SessionProvider>
         <App />
-      </BrowserRouter>
-    </SessionProvider>
+      </SessionProvider>
+    </BrowserRouter>
   </StrictMode>,
 );

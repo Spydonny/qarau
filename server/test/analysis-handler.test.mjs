@@ -8,8 +8,9 @@ import { createRepositories } from "../db/repositories/index.mjs";
 import { createAnalysisRunHandler } from "../jobs/handlers/analysis-run.mjs";
 import { normalizeRows } from "../normalization/canonical-jsonl.mjs";
 import { encryptSourceUrl } from "../security/source-url.mjs";
+import { testDatabaseUrl } from "./database-url.mjs";
 
-const databaseUrl = process.env.TEST_DATABASE_URL;
+const databaseUrl = testDatabaseUrl();
 const sourceKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 class MemoryArtifacts {
   constructor() { this.values = new Map(); }

@@ -2,13 +2,13 @@
 
 Plan date: 2026-09-05  
 Input: [`QARAU_MVP_GAP_AUDIT.md`](QARAU_MVP_GAP_AUDIT.md) and the supplied QARAU MVP requirements  
-Integration strategy: incremental replacement around the working prototype; no rewrite and no mock marketplace state
+Integration strategy: incremental replacement around the working prototype; no rewrite and no mock opportunity or auction state
 
 ## 1. Goal and completion boundary
 
 The integration is complete only when the existing research prototype can execute this real path:
 
-`discovery → fetch → immutable raw snapshot → normalization → dataset version → target mapping → persisted signals → temporal validation → deterministic Alpha Score → sealed package → DatasetCommitment PDA → Sale PDA → buyer-signed SOL payment → AccessGrant PDA → protected tier-aware delivery → Proof-of-Alpha verification`
+`discovery → ten-gate screening → fetch → immutable raw snapshot → normalization → dataset version → target mapping → persisted signals → temporal validation → deterministic evidence score → sealed package → DatasetCommitment PDA → Top-N pay-as-bid AccessRound PDA → ranked bidder escrow → settled AccessEntitlement PDA → protected licensed delivery → proof verification`
 
 The following do not count as completion:
 
@@ -24,14 +24,14 @@ The following do not count as completion:
 
 1. **Preserve the working prototype.** Keep existing discovery, provider adapters, owner auth, SSRF protection, parser limits, analysis tests, encryption code, and UI pages until their replacements pass equivalent tests.
 2. **Strangler migration.** Introduce repository/storage/job interfaces behind `QarauService`; move one workflow at a time from the encrypted state file to durable services.
-3. **One authority per fact.** Solana owns commitment hashes, sale state, seat count, and grants. PostgreSQL owns workflow metadata. Object storage owns immutable artifact bytes.
+3. **One authority per fact.** Solana owns commitment hashes, access-round state, bid ranking, escrow settlement, and entitlements. PostgreSQL owns workflow metadata. Object storage owns immutable artifact bytes.
 4. **Hash exact stored bytes.** Verification loads and hashes the committed artifact; it never regenerates an allegedly equivalent file from mutable database rows.
-5. **Chain reads authorize; cache reads do not.** Database grant/sale records are reconciliation caches and indexes only.
+5. **Chain reads authorize; cache reads do not.** Database round/bid/entitlement records are reconciliation caches and indexes only.
 6. **Buyer keys stay in the wallet.** The backend signer performs publisher operations only. It never signs purchases for buyers.
 7. **Every long operation is a durable job.** API requests enqueue and return; workers fetch, normalize, analyze, publish, or reconcile.
-8. **No sale before validation is sealed.** Package publication is downstream of an immutable DatasetVersion and completed AnalysisRun.
+8. **No access round before validation is sealed.** Package publication is downstream of an immutable DatasetVersion and completed AnalysisRun.
 9. **Default-deny delivery.** Missing, stale, malformed, expired, mismatched, or unreadable on-chain access state returns 403/503, never the data.
-10. **MVP scope stays narrow.** Devnet, SOL payment, one crypto target adapter, the current traditional target path, fixed-price timed sale, and two access tiers.
+10. **MVP scope stays narrow.** Devnet, SOL escrow, one crypto target adapter, the current traditional target path, bounded Top-N pay-as-bid access rounds, and two access tiers.
 
 ## 3. Decisions to freeze before implementation
 
@@ -40,7 +40,7 @@ These are contract decisions. Changing them after database migrations, artifact 
 | ID | Decision | Proposed MVP choice | Reversibility |
 |---|---|---|---|
 | D-01 | Payment asset | Native SOL only; USDC postponed | Costly but additive |
-| D-02 | Sale type | Timed fixed-price sale with minimum/fixed price; no bidding engine | Additive |
+| D-02 | Access allocation | Timed Top-N pay-as-bid round, max 10 winners, deterministic ranking by amount → timestamp → wallet; winner pays own bid | Additive |
 | D-03 | Network | Local validator for tests, Devnet for live acceptance | Reversible by config |
 | D-04 | Wallet auth | SIWS with server nonce; legacy `signMessage` fallback only if it verifies the same bound fields | Costly public contract |
 | D-05 | Database | PostgreSQL with explicit SQL migrations | Costly migration |
@@ -50,10 +50,10 @@ These are contract decisions. Changing them after database migrations, artifact 
 | D-09 | Dataset identity | UUID off-chain; SHA-256 UUID/domain digest as fixed `[u8;32]` on-chain ID | One-way after deployment |
 | D-10 | Version type | Monotonic `u32`, scoped to dataset | One-way after deployment |
 | D-11 | Access tiers | `EXCLUSIVE_EARLY` and `DELAYED`; program stores policy primitives and `access_policy_hash`, backend hash-verifies and evaluates the immutable policy | One-way policy contract |
-| D-12 | Grant scope | Dataset line + purchased DatasetCommitment/version + buyer wallet; cross-version visibility is bounded by the committed policy | One-way after deployment |
+| D-12 | Entitlement scope | Dataset line + settled DatasetCommitment/version + bidder wallet; cross-version visibility is bounded by the committed policy | One-way after deployment |
 | D-13 | Program upgrade | Upgradeable on Devnet with multisig/runbook target; do not mark immutable during MVP | Operationally costly |
 | D-14 | Package gate | Completed validation, no blocking leakage, minimum sample size; Alpha threshold configured and formula-versioned | Reversible for new packages |
-| D-15 | Commitment level | `confirmed` means payment observed in UI; only `finalized` state may authorize irreversible private-data delivery | Reversible by config |
+| D-15 | Commitment level | `confirmed` means bid/claim observed in UI; only `finalized` state may authorize irreversible private-data delivery | Reversible by config |
 | D-16 | Quantitative contract | Exact formulas, thresholds, annualization, regimes, multiple-testing method, and golden outputs frozen before signal implementation | Costly research contract |
 
 Human checkpoints are required before D-08 through D-12 and D-16 are implemented because they define published hashes, PDA addresses, grant semantics, and the meaning of a reported Alpha Score.
@@ -69,7 +69,7 @@ Human checkpoints are required before D-08 through D-12 and D-16 are implemented
 | `worker-scrape` | Fetch, raw capture, parsing, source health | No | Raw source artifacts |
 | `worker-analysis` | Normalize, construct signals, validate, score, package artifacts | No | Dataset and analysis artifacts |
 | `scheduler` | Enqueue due scrapes/reconciliation; no heavy work | No | No |
-| `worker-chain` | Publish commitments/sales, reconcile transactions/accounts | Through isolated signer RPC only | Hashes/manifests, not raw datasets |
+| `worker-chain` | Publish commitments/access rounds, settle rounds, reconcile transactions/accounts | Through isolated signer RPC only | Hashes/manifests, not raw datasets |
 | `publisher-signer` | Validate narrow publisher intent and sign allowed program instructions | Yes | No |
 
 `publisher-signer` is a separate service/container, not a child process of the API or chain worker. Only this service receives the operational publisher key mount. Deployment/upgrade authority is stored separately and is never mounted into the running application topology.

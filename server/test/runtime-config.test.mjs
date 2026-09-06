@@ -13,7 +13,7 @@ const integrated = {
   SOURCE_URL_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   WALLET_SESSION_SECRET: "0123456789abcdef0123456789abcdef",
   SOLANA_RPC_URL: "https://api.devnet.solana.com",
-  SOLANA_PROGRAM_ID: "5n92bg5CrZrt956eXmakgAiqesbfFav7mdNqsfk8Ex3u",
+  SOLANA_PROGRAM_ID: "63VZwKUPcWqo2JwpQHLxT4HHgQsMREpERZg3DpfSnnMw",
   PUBLISHER_SIGNER_URL: "http://publisher-signer:8796",
   PUBLISHER_SIGNER_TOKEN: "local-token-change-me",
   SOLANA_PUBLISHER_KEY_PATH: "/run/secrets/publisher.json",

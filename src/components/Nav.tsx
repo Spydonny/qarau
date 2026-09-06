@@ -1,15 +1,11 @@
 import { NavLink, Link } from "react-router-dom";
-import { useSession } from "../api/session";
+import { useSession } from "../api/useSession";
 import qarauMonogram from "../assets/qarau/monogram-on-dark.png";
 import qarauLockup from "../assets/qarau/primary-lockup-on-dark.png";
 import qarauWordmark from "../assets/qarau/wordmark-on-dark.png";
 
 const LINKS = [
-  { to: "/pipeline", label: "Pipeline" },
-  { to: "/discovery", label: "Discovery" },
-  { to: "/signals", label: "Signals" },
-  { to: "/data", label: "Data" },
-  { to: "/runs", label: "Runs" },
+  { to: "/admin/pipeline", label: "Pipeline" },
 ];
 
 export function Nav() {
@@ -20,9 +16,9 @@ export function Nav() {
     <header className="nav">
       <div className="shell nav-inner">
         <Link
-          to="/discovery"
+          to="/admin/pipeline"
           className="nav-mark"
-          aria-label="Qarau / Internal home"
+          aria-label="Qarau Research Console home"
         >
           <img
             className="nav-brand nav-brand-lockup"
@@ -38,7 +34,7 @@ export function Nav() {
             height={174}
             alt=""
           />
-          <span className="nav-mark-env">/ Internal</span>
+          <span className="nav-mark-env">/ Research Console</span>
         </Link>
 
         <nav className="nav-links">

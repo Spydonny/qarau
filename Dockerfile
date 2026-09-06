@@ -12,6 +12,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --chown=node:node --from=build /app/dist ./dist
 COPY --chown=node:node --from=build /app/server ./server
+COPY --chown=node:node --from=build /app/contracts ./contracts
 RUN mkdir -p /app/server/data/private && chown node:node /app/server/data/private
 USER node
 EXPOSE 8787

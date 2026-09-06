@@ -71,6 +71,34 @@ export const SOLANA_ACCOUNT_LAYOUTS = Object.freeze({
     }),
     space: 159,
   }),
+  AccessRound: Object.freeze({
+    fields: Object.freeze({
+      datasetCommitment: 32,
+      treasury: 32,
+      opensAt: 8,
+      closesAt: 8,
+      minimumBidLamports: 8,
+      maxWinners: 4,
+      bidCount: 4,
+      winnersCount: 4,
+      claimedCount: 4,
+      enabledTierMask: 1,
+      settlementRule: 1,
+      status: 1,
+      clearingPriceLamports: 8,
+      bids: 4 + (32 * 49),
+      bump: 1,
+    }),
+    space: 1696,
+  }),
+  Bid: Object.freeze({
+    fields: Object.freeze({ accessRound: 32, bidder: 32, amountLamports: 8, tier: 1, placedAt: 8, status: 1, bump: 1 }),
+    space: 91,
+  }),
+  AccessEntitlement: Object.freeze({
+    fields: Object.freeze({ datasetCommitment: 32, accessRound: 32, wallet: 32, datasetIdHash: 32, purchasedVersion: 4, tier: 1, grantedAt: 8, expiresAt: 8, bidAmountLamports: 8, status: 1, bump: 1 }),
+    space: 167,
+  }),
 });
 
 function assertPlainObject(value) {

@@ -2,16 +2,16 @@
   "schema_version": 1,
   "name": "QARAU production vertical tracer",
   "authority": {
-    "sale": "solana_sale_account",
-    "grant": "solana_access_grant_account",
+    "access_round": "solana_access_round_account",
+    "entitlement": "solana_access_entitlement_account",
     "artifact_bytes": "private_object_store"
   },
   "stable_ids": {
     "dataset_uuid": "018f5c52-4b2e-7ad1-8f7c-222222222222",
     "source_key": "public-catalog:open-meteo:berlin-temperature",
-    "buyer_alias": "buyer_early",
-    "delayed_buyer_alias": "buyer_delayed",
-    "ungranted_buyer_alias": "buyer_ungranted"
+    "bidder_alias": "bidder_early",
+    "delayed_bidder_alias": "bidder_delayed",
+    "unentitled_bidder_alias": "bidder_unentitled"
   },
   "stages": [
     { "id": "source", "work_item": "INT-020", "state": "pending" },
@@ -20,12 +20,12 @@
     { "id": "analysis_v1_v2", "work_item": "INT-033", "state": "pending" },
     { "id": "packages_v1_v2", "work_item": "INT-040", "state": "pending" },
     { "id": "commitments_v1_v2", "work_item": "INT-045", "state": "pending" },
-    { "id": "sale_v2_delayed_v1", "work_item": "INT-045", "state": "pending" },
-    { "id": "purchase", "work_item": "INT-051", "state": "pending" },
-    { "id": "grant", "work_item": "INT-052", "state": "pending" },
+    { "id": "access_round", "work_item": "INT-045", "state": "pending" },
+    { "id": "ranked_bids", "work_item": "INT-051", "state": "pending" },
+    { "id": "entitlement", "work_item": "INT-052", "state": "pending" },
     { "id": "early_v2", "work_item": "INT-053", "state": "pending" },
     { "id": "delayed_v1", "work_item": "INT-053", "state": "pending" },
-    { "id": "ungranted_403", "work_item": "INT-053", "state": "pending" },
+    { "id": "unentitled_403", "work_item": "INT-053", "state": "pending" },
     { "id": "immutable_v3", "work_item": "INT-054", "state": "pending" }
   ]
 }

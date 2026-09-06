@@ -5,7 +5,7 @@
     "public": "none",
     "owner": "owner_session_and_csrf",
     "wallet": "siws_wallet_session",
-    "wallet_finalized_grant": "siws_wallet_session_plus_finalized_access_grant"
+    "wallet_finalized_entitlement": "siws_wallet_session_plus_finalized_access_entitlement"
   },
   "endpoints": [
     { "method": "POST", "path": "/discovery/jobs", "security": "owner", "request": "DiscoveryJobRequest", "response": "JobAccepted" },
@@ -19,40 +19,56 @@
     { "method": "GET", "path": "/analysis-runs/{id}", "security": "owner", "response": "AnalysisRun" },
     { "method": "POST", "path": "/analysis-runs/{id}/packages", "security": "owner", "request": "PackageRequest", "response": "DatasetPackage" },
     { "method": "POST", "path": "/packages/{id}/publish", "security": "owner", "response": "JobAccepted" },
-    { "method": "POST", "path": "/packages/{id}/sales", "security": "owner", "request": "SaleRequest", "response": "JobAccepted" },
+    { "method": "POST", "path": "/access-rounds/{id}/settle", "security": "owner", "response": "JobAccepted" },
+    { "method": "GET", "path": "/cockpit/funnel", "security": "owner", "response": "ProductionFunnel" },
     { "method": "GET", "path": "/jobs/{id}", "security": "owner", "response": "Job" },
-    { "method": "GET", "path": "/marketplace", "security": "public", "response": "PublicPackageList" },
-    { "method": "GET", "path": "/packages/{id}/public", "security": "public", "response": "PublicPackage" },
+    { "method": "GET", "path": "/opportunities", "security": "public", "response": "PublicOpportunityList" },
+    { "method": "GET", "path": "/opportunities/{id}", "security": "public", "response": "PublicOpportunity" },
     { "method": "POST", "path": "/auth/siws/challenge", "security": "public", "request": "SiwsChallengeRequest", "response": "SiwsChallenge" },
     { "method": "POST", "path": "/auth/siws/verify", "security": "public", "request": "SiwsVerification", "response": "WalletSession" },
     { "method": "POST", "path": "/auth/logout", "security": "wallet", "response": "Empty" },
     { "method": "GET", "path": "/auth/session", "security": "wallet", "response": "WalletSession" },
-    { "method": "POST", "path": "/sales/{salePda}/purchase-transaction", "security": "wallet", "request": "PurchaseTransactionRequest", "response": "UnsignedPurchaseTransaction" },
-    { "method": "POST", "path": "/purchases/confirm", "security": "wallet", "request": "PurchaseConfirmation", "response": "PurchaseState" },
-    { "method": "GET", "path": "/wallet/access-grants", "security": "wallet", "response": "AccessGrantList" },
-    { "method": "GET", "path": "/dataset/{packageId}/metadata", "security": "wallet_finalized_grant", "response": "ProtectedMetadata" },
-    { "method": "GET", "path": "/dataset/{packageId}/report", "security": "wallet_finalized_grant", "response": "ProtectedArtifact" },
-    { "method": "GET", "path": "/dataset/{packageId}/data", "security": "wallet_finalized_grant", "response": "ProtectedArtifact" },
-    { "method": "GET", "path": "/dataset/{packageId}/export", "security": "wallet_finalized_grant", "response": "ProtectedArtifact" },
+    { "method": "POST", "path": "/access-rounds/{roundPda}/bid-transaction", "security": "wallet", "request": "BidTransactionRequest", "response": "UnsignedBidTransaction" },
+    { "method": "POST", "path": "/bids/confirm", "security": "wallet", "request": "BidConfirmation", "response": "BidState" },
+    { "method": "POST", "path": "/access-rounds/{roundPda}/claim-transaction", "security": "wallet", "response": "UnsignedClaimTransaction" },
+    { "method": "POST", "path": "/entitlements/confirm", "security": "wallet", "request": "EntitlementConfirmation", "response": "EntitlementState" },
+    { "method": "POST", "path": "/access-rounds/{roundPda}/refund-transaction", "security": "wallet", "response": "UnsignedRefundTransaction" },
+    { "method": "GET", "path": "/wallet/auction-positions", "security": "wallet", "response": "AuctionPositionList" },
+    { "method": "GET", "path": "/wallet/access-entitlements", "security": "wallet", "response": "AccessEntitlementList" },
+    { "method": "GET", "path": "/dataset/{packageId}/metadata", "security": "wallet_finalized_entitlement", "response": "ProtectedMetadata" },
+    { "method": "GET", "path": "/dataset/{packageId}/report", "security": "wallet_finalized_entitlement", "response": "ProtectedArtifact" },
+    { "method": "GET", "path": "/dataset/{packageId}/data", "security": "wallet_finalized_entitlement", "response": "ProtectedArtifact" },
+    { "method": "GET", "path": "/dataset/{packageId}/export", "security": "wallet_finalized_entitlement", "response": "ProtectedArtifact" },
     { "method": "GET", "path": "/packages/{id}/proof", "security": "public", "response": "Proof" },
     { "method": "POST", "path": "/packages/{id}/proof/verify", "security": "public", "response": "ProofVerification" }
   ],
   "schemas": {
+    "AnalysisRun": {
+      "required": ["analysis_run", "signal_candidates", "validations", "leakage_checks", "alpha_score_components", "package", "pagination"],
+      "pagination": { "default_limit": 20, "maximum_limit": 100, "offset": "non_negative_integer" },
+      "leakage_checks": "aggregated_by_check_type_and_status",
+      "package": "existing_package_or_null",
+      "additional_properties": false
+    },
     "SiwsChallenge": {
       "required": ["message", "nonce", "domain", "uri", "chain_id", "issued_at", "expiration_time"],
       "additional_properties": false
     },
-    "PurchaseTransactionRequest": {
-      "required": ["tier"],
-      "forbidden": ["buyer", "amount", "treasury", "grant_pda", "program_id"],
+    "BidTransactionRequest": {
+      "required": ["tier", "amount_lamports"],
+      "forbidden": ["bidder", "treasury", "bid_pda", "program_id"],
       "additional_properties": false
     },
-    "PurchaseConfirmation": {
-      "required": ["transaction_signature"],
+    "BidConfirmation": {
+      "required": ["round_pda", "transaction_signature"],
       "additional_properties": false
     },
-    "PublicPackage": {
-      "allowlist": ["package_id", "title", "description", "coverage", "update_frequency", "target_asset_class", "target_symbol", "alpha_score_summary", "validation_summary", "commitment_address", "sale_address", "price_lamports", "sale_window", "max_seats", "occupied_seats"],
+    "EntitlementConfirmation": {
+      "required": ["round_pda", "transaction_signature"],
+      "additional_properties": false
+    },
+    "PublicOpportunity": {
+      "allowlist": ["package_id", "title", "description", "coverage", "update_frequency", "target_asset_class", "target_symbol", "evidence_band", "validation_summary", "access_form", "commitment_address", "access_round_address", "access_round_id", "access_round"],
       "denylist": ["source_url", "raw_alpha", "signal_values", "private_statistics", "object_key", "internal_id", "storage_metadata"]
     },
     "ProofVerification": {

@@ -4,8 +4,9 @@ import test from "node:test";
 import { createPool } from "../db/pool.mjs";
 import { migrate } from "../db/migrate.mjs";
 import { PostgresJobQueue } from "../jobs/queue.mjs";
+import { testDatabaseUrl } from "./database-url.mjs";
 
-const databaseUrl = process.env.TEST_DATABASE_URL;
+const databaseUrl = testDatabaseUrl();
 
 test("Postgres queue is idempotent, lease-safe, retryable, and dead-lettered", { skip: !databaseUrl }, async () => {
   const pool = createPool(databaseUrl);

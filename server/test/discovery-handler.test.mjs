@@ -4,8 +4,9 @@ import test from "node:test";
 import { createPool } from "../db/pool.mjs";
 import { migrate } from "../db/migrate.mjs";
 import { createDiscoveryRunHandler } from "../jobs/handlers/discovery-run.mjs";
+import { testDatabaseUrl } from "./database-url.mjs";
 
-const databaseUrl = process.env.TEST_DATABASE_URL;
+const databaseUrl = testDatabaseUrl();
 const sourceKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
 test("discovery persists live candidates once and retains discovery evidence", { skip: !databaseUrl }, async () => {

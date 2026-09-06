@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import type { Run } from "../api/types";
 import { SysMeta, Trace } from "../components/primitives";
-import { INK } from "../components/charts";
+import { INK } from "../components/chart-ink";
 
 export function Runs() {
   const [runs, setRuns] = useState<Run[] | null>(null);

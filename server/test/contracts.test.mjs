@@ -42,6 +42,9 @@ test("Solana account spaces include the discriminator and every frozen field", (
     DatasetCommitment: 271,
     Sale: 156,
     AccessGrant: 159,
+    AccessRound: 1696,
+    Bid: 91,
+    AccessEntitlement: 167,
   });
 });
 
@@ -49,23 +52,23 @@ test("vertical tracer contains only production authorities and all tier/version 
   const tracer = JSON.parse(await readFile(new URL("../../contracts/tracer-v1.json", import.meta.url), "utf8"));
   const stageIds = new Set(tracer.stages.map(({ id }) => id));
   assert.equal(tracer.stages.length, stageIds.size);
-  assert.ok(["solana_sale_account", "solana_access_grant_account"].every((authority) => Object.values(tracer.authority).includes(authority)));
-  assert.ok(["early_v2", "delayed_v1", "ungranted_403", "immutable_v3"].every((id) => stageIds.has(id)));
+  assert.ok(["solana_access_round_account", "solana_access_entitlement_account"].every((authority) => Object.values(tracer.authority).includes(authority)));
+  assert.ok(["early_v2", "delayed_v1", "unentitled_403", "immutable_v3"].every((id) => stageIds.has(id)));
   assert.equal(JSON.stringify(tracer).includes("mock"), false);
   assert.ok(tracer.stages.every(({ work_item, state }) => /^INT-\d{3}$/.test(work_item) && state === "pending"));
 });
 
-test("API contract separates public, wallet, owner, and finalized-grant boundaries", async () => {
+test("API contract separates public, wallet, owner, and finalized-entitlement boundaries", async () => {
   const contract = JSON.parse(await readFile(new URL("../../contracts/api-v1.json", import.meta.url), "utf8"));
   const key = ({ method, path }) => `${method} ${path}`;
   const endpoints = new Map(contract.endpoints.map((endpoint) => [key(endpoint), endpoint]));
-  assert.equal(endpoints.get("GET /marketplace").security, "public");
+  assert.equal(endpoints.get("GET /opportunities").security, "public");
   assert.equal(endpoints.get("POST /discovery/jobs").security, "owner");
-  assert.equal(endpoints.get("POST /sales/{salePda}/purchase-transaction").security, "wallet");
+  assert.equal(endpoints.get("POST /access-rounds/{roundPda}/bid-transaction").security, "wallet");
   for (const role of ["metadata", "report", "data", "export"]) {
-    assert.equal(endpoints.get(`GET /dataset/{packageId}/${role}`).security, "wallet_finalized_grant");
+    assert.equal(endpoints.get(`GET /dataset/{packageId}/${role}`).security, "wallet_finalized_entitlement");
   }
-  assert.deepEqual(contract.schemas.PurchaseTransactionRequest.forbidden, ["buyer", "amount", "treasury", "grant_pda", "program_id"]);
+  assert.deepEqual(contract.schemas.BidTransactionRequest.forbidden, ["bidder", "treasury", "bid_pda", "program_id"]);
   assert.ok(contract.schemas.ProtectedArtifact.forbidden.includes("signed_url"));
 });
 

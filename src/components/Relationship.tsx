@@ -1,5 +1,5 @@
 import { useWidth } from "./useWidth";
-import { INK } from "./charts";
+import { INK } from "./chart-ink";
 
 /* ============================================================
    RELATIONSHIP DIAGRAM

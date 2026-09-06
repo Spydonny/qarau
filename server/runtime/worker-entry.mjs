@@ -5,6 +5,7 @@ import { createScrapeSourceHandler } from "../jobs/handlers/scrape-source.mjs";
 import { createDiscoveryRunHandler } from "../jobs/handlers/discovery-run.mjs";
 import { createAnalysisRunHandler } from "../jobs/handlers/analysis-run.mjs";
 import { createChainPublishHandler } from "../jobs/handlers/chain-publish.mjs";
+import { createChainSettleHandler } from "../jobs/handlers/chain-settle.mjs";
 import { createRepositories } from "../db/repositories/index.mjs";
 import { enqueueDueSources } from "../scheduler/enqueue-due-sources.mjs";
 import { createQueueWorker } from "../jobs/worker.mjs";
@@ -29,10 +30,11 @@ if (["worker-scrape", "worker-discovery", "worker-analysis", "worker-chain"].inc
         ? { "analysis.run": createAnalysisRunHandler({ pool, artifactStore: S3ArtifactStore.fromEnvironment(process.env) }) }
         : (() => {
           const publish = createChainPublishHandler({ pool, publisherSignerUrl: config.values.PUBLISHER_SIGNER_URL, publisherSignerToken: config.values.PUBLISHER_SIGNER_TOKEN });
+          const settle = createChainSettleHandler({ pool, publisherSignerUrl: config.values.PUBLISHER_SIGNER_URL, publisherSignerToken: config.values.PUBLISHER_SIGNER_TOKEN, rpcUrl: config.values.SOLANA_RPC_URL, programId: config.values.SOLANA_PROGRAM_ID });
           return { "chain.publish": async (job) => {
             try { return await publish(job); }
             catch (error) { await pool.query("UPDATE dataset_packages SET status = 'publication_failed' WHERE id = $1 AND status = 'commit_pending'", [job.payload.packageId]); throw error; }
-          } };
+          }, "chain.settle": settle };
         })();
   worker = createQueueWorker({
     queue,

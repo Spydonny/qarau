@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useWidth } from "./useWidth";
-import { INK } from "./charts";
+import { INK } from "./chart-ink";
 import type { Lane, RunLanes } from "../api/types";
 
 /* ============================================================

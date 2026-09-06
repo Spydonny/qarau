@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-qarau_registry = "5n92bg5CrZrt956eXmakgAiqesbfFav7mdNqsfk8Ex3u"
+qarau_registry = "63VZwKUPcWqo2JwpQHLxT4HHgQsMREpERZg3DpfSnnMw"
 
 [provider]
 cluster = "devnet"

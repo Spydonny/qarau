@@ -25,6 +25,27 @@ services:
       retries: 20
     networks: [private]
 
+  # Disposable and isolated: integration tests may never point at the durable
+  # application database. The tmpfs is recreated for every test run.
+  postgres-test:
+    image: postgres:17.6-bookworm
+    profiles: ["test"]
+    environment:
+      POSTGRES_DB: qarau_test
+      POSTGRES_USER: qarau_owner
+      POSTGRES_PASSWORD: qarau-owner-local-only
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    ports: ["127.0.0.1:55432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qarau_owner -d qarau_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks: [public]
+
   object-storage:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z
     command: server /data
@@ -79,7 +100,7 @@ services:
       SOURCE_URL_ENCRYPTION_KEY: ${SOURCE_URL_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       WALLET_SESSION_SECRET: ${WALLET_SESSION_SECRET:-local-wallet-session-secret-change-me}
       SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.devnet.solana.com}
-      SOLANA_PROGRAM_ID: ${SOLANA_PROGRAM_ID:-5n92bg5CrZrt956eXmakgAiqesbfFav7mdNqsfk8Ex3u}
+      SOLANA_PROGRAM_ID: ${SOLANA_PROGRAM_ID:-63VZwKUPcWqo2JwpQHLxT4HHgQsMREpERZg3DpfSnnMw}
       OWNER_PASSWORD_HASH: ${OWNER_PASSWORD_HASH:-}
       OWNER_ID: ${OWNER_ID:-01}
     depends_on:
@@ -172,7 +193,7 @@ services:
       S3_SECRET_ACCESS_KEY: qarau-chain-secret-local
       S3_REQUIRE_SSE: "false"
       SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.devnet.solana.com}
-      SOLANA_PROGRAM_ID: ${SOLANA_PROGRAM_ID:-5n92bg5CrZrt956eXmakgAiqesbfFav7mdNqsfk8Ex3u}
+      SOLANA_PROGRAM_ID: ${SOLANA_PROGRAM_ID:-63VZwKUPcWqo2JwpQHLxT4HHgQsMREpERZg3DpfSnnMw}
       PUBLISHER_SIGNER_URL: http://publisher-signer:8796
       PUBLISHER_SIGNER_TOKEN: ${PUBLISHER_SIGNER_TOKEN:-local-publisher-token-change-me}
       QARAU_WORKER_EXECUTE: "true"
@@ -204,7 +225,7 @@ services:
     environment:
       <<: *integrated
       SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.devnet.solana.com}
-      SOLANA_PROGRAM_ID: ${SOLANA_PROGRAM_ID:-5n92bg5CrZrt956eXmakgAiqesbfFav7mdNqsfk8Ex3u}
+      SOLANA_PROGRAM_ID: ${SOLANA_PROGRAM_ID:-63VZwKUPcWqo2JwpQHLxT4HHgQsMREpERZg3DpfSnnMw}
       PUBLISHER_SIGNER_TOKEN: ${PUBLISHER_SIGNER_TOKEN:-local-publisher-token-change-me}
       SOLANA_PUBLISHER_KEY_PATH: /run/qarau-signer/publisher.json
       SERVICE_HEALTH_PORT: 8796
