@@ -2,6 +2,7 @@ import express from "express";
 import { createHash, randomUUID } from "node:crypto";
 import { createRepositories } from "../db/repositories/index.mjs";
 import { HASH_DOMAINS, canonicalJsonBytes, hashBytes, validateAccessPolicy } from "../domain/canonical-artifacts.mjs";
+import { effectiveAccessRoundState, hasTemporalAccessRoundState } from "../domain/access-round-state.mjs";
 import { jobIdempotencyKey } from "../jobs/payloads.mjs";
 import { PostgresJobQueue } from "../jobs/queue.mjs";
 import { normalizeRows } from "../normalization/canonical-jsonl.mjs";
@@ -53,7 +54,7 @@ function publicPackage(row) {
     access_round_address: row.round_pda,
     access_round_id: row.access_round_id,
     access_round: row.round_pda ? {
-      state: row.round_state,
+      state: effectiveAccessRoundState(row),
       opens_at: row.opens_at,
       closes_at: row.closes_at,
       minimum_bid_lamports: Number(row.minimum_bid_lamports),
@@ -272,8 +273,13 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
   owner.post("/access-rounds/:id/settle", route(async (req, res) => {
     if (!validUuid(req.params.id)) throw new Error("invalid_access_round_id");
     const round = (await pool.query("SELECT * FROM access_rounds WHERE id = $1", [req.params.id])).rows[0];
-    if (!round || !["live", "ended"].includes(round.state)) throw new Error("access_round_not_settleable");
-    if (new Date(round.closes_at).getTime() >= Date.now()) throw new Error("auction_still_open");
+    if (!round) throw new Error("access_round_not_settleable");
+    const effectiveState = effectiveAccessRoundState(round);
+    if (hasTemporalAccessRoundState(round) && effectiveState !== round.state) {
+      await pool.query("UPDATE access_rounds SET state = $2, last_reconciled_at = now() WHERE id = $1 AND state IN ('upcoming', 'live', 'ended')", [round.id, effectiveState]);
+    }
+    if (effectiveState === "live") throw new Error("auction_still_open");
+    if (effectiveState !== "ended") throw new Error("access_round_not_settleable");
     const payload = { accessRoundId: round.id };
     const job = await queue.enqueue({ type: "chain.settle", payload, idempotencyKey: jobIdempotencyKey("chain.settle", 1, payload), resourceType: "access_round", resourceId: round.id });
     res.status(202).json({ job: job.job, created: job.created });
@@ -388,14 +394,14 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
     res.json({ ...transaction, transaction_base64: transaction.transactionBase64 });
   }));
   wallet.get("/wallet/access-entitlements", route(async (req, res) => {
-    const rounds = await pool.query("SELECT round.package_id, round.round_pda, round.program_id, round.state FROM access_rounds AS round WHERE round.confirmation_status = 'finalized'");
+    const rounds = await pool.query("SELECT round.package_id, round.round_pda, round.program_id, round.state, round.opens_at, round.closes_at FROM access_rounds AS round WHERE round.confirmation_status = 'finalized'");
     const entitlements = [];
-    for (const round of rounds.rows) { const entitlement = await readAccessEntitlement({ rpcUrl: solana.rpcUrl, programId: round.program_id, roundPda: round.round_pda, wallet: req.wallet.address }); if (entitlement) entitlements.push({ package_id: round.package_id, round_state: round.state, ...entitlement, tier: tierName(entitlement.tier) }); }
+    for (const round of rounds.rows) { const entitlement = await readAccessEntitlement({ rpcUrl: solana.rpcUrl, programId: round.program_id, roundPda: round.round_pda, wallet: req.wallet.address }); if (entitlement) entitlements.push({ package_id: round.package_id, round_state: effectiveAccessRoundState(round), ...entitlement, tier: tierName(entitlement.tier) }); }
     res.json({ entitlements });
   }));
   wallet.get("/wallet/auction-positions", route(async (req, res) => {
-    const positions = await pool.query("SELECT bid.amount_lamports, bid.tier, bid.status, bid.placed_at, round.round_pda, round.state AS round_state, round.max_winners, round.winners_count, package.id AS package_id, package.public_metadata FROM auction_bids AS bid JOIN access_rounds AS round ON round.id = bid.access_round_id JOIN dataset_packages AS package ON package.id = round.package_id WHERE bid.wallet_id = $1 ORDER BY bid.placed_at DESC", [req.wallet.wallet_id]);
-    res.json({ positions: positions.rows });
+    const positions = await pool.query("SELECT bid.amount_lamports, bid.tier, bid.status, bid.placed_at, round.round_pda, round.state AS round_state, round.opens_at, round.closes_at, round.max_winners, round.winners_count, package.id AS package_id, package.public_metadata FROM auction_bids AS bid JOIN access_rounds AS round ON round.id = bid.access_round_id JOIN dataset_packages AS package ON package.id = round.package_id WHERE bid.wallet_id = $1 ORDER BY bid.placed_at DESC", [req.wallet.wallet_id]);
+    res.json({ positions: positions.rows.map((position) => ({ ...position, round_state: effectiveAccessRoundState(position) })) });
   }));
   async function protectedContext(req) {
     const context = await packageContext(pool, req.params.packageId); if (!context || !context.dataset_pda || !context.round_pda) throw new Error("package_not_found");
