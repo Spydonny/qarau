@@ -67,6 +67,20 @@ function publicPackage(row) {
   };
 }
 
+// SQL predicates are the primary boundary; this second check prevents a future
+// query refactor from accidentally publishing local fixtures as Devnet state.
+export function isVerifiedDevnetOpportunity(row) {
+  return row?.status === "committed"
+    && row.commitment_network === "devnet"
+    && row.commitment_confirmation_status === "finalized"
+    && row.commitment_chain_state_source === "rpc_verified"
+    && row.round_network === "devnet"
+    && row.round_confirmation_status === "finalized"
+    && row.round_chain_state_source === "rpc_verified"
+    && Boolean(row.dataset_pda)
+    && Boolean(row.round_pda);
+}
+
 async function marketSnapshot({ pool, repositories, artifactStore, symbol }) {
   const data = await loadMarketTarget(symbol);
   const config = { "BTC-USD": { provider: "COINBASE", assetClass: "crypto", calendar: "24x7", currency: "USD" }, "ETH-USD": { provider: "COINBASE", assetClass: "crypto", calendar: "24x7", currency: "USD" } }[symbol] ?? { provider: "ECB", assetClass: "fx", calendar: "weekday", currency: "USD" };
@@ -88,9 +102,14 @@ async function packageContext(pool, packageId) {
   const result = await pool.query(
     `SELECT package.*, version.dataset_id, version.version AS dataset_version, version.normalized_object_key,
             analysis.report_object_key, analysis.alpha_score, commitment.dataset_pda, commitment.program_id,
+            commitment.network AS commitment_network,
+            commitment.confirmation_status AS commitment_confirmation_status,
+            commitment.chain_state_source AS commitment_chain_state_source,
             round.id AS access_round_id, round.round_pda, round.state AS round_state, round.opens_at, round.closes_at,
             round.minimum_bid_lamports, round.max_winners, round.bid_count, round.winners_count,
             round.clearing_price_lamports, round.settlement_rule, round.decoded_state,
+            round.network AS round_network, round.confirmation_status AS round_confirmation_status,
+            round.chain_state_source AS round_chain_state_source,
             source.redistribution_rights, source.derivative_rights,
             (SELECT candidate.artifact_object_key FROM signal_candidates AS candidate
              WHERE candidate.analysis_run_id = analysis.id
@@ -100,8 +119,8 @@ async function packageContext(pool, packageId) {
      JOIN datasets AS dataset ON dataset.id = version.dataset_id
      JOIN sources AS source ON source.id = dataset.source_id
      JOIN analysis_runs AS analysis ON analysis.id = package.analysis_run_id
-     LEFT JOIN blockchain_commitments AS commitment ON commitment.package_id = package.id AND commitment.confirmation_status = 'finalized'
-     LEFT JOIN access_rounds AS round ON round.package_id = package.id AND round.confirmation_status = 'finalized'
+     LEFT JOIN blockchain_commitments AS commitment ON commitment.package_id = package.id AND commitment.network = 'devnet' AND commitment.confirmation_status = 'finalized' AND commitment.chain_state_source = 'rpc_verified'
+     LEFT JOIN access_rounds AS round ON round.package_id = package.id AND round.network = 'devnet' AND round.confirmation_status = 'finalized' AND round.chain_state_source = 'rpc_verified'
      WHERE package.id = $1`, [packageId],
   );
   return result.rows[0] ?? null;
@@ -253,7 +272,7 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
     if (!validUuid(req.params.id)) throw new Error("invalid_package_id");
     const packageRow = await repositories.packages.findById(req.params.id);
     if (!packageRow || !["sealed", "publication_failed", "commit_pending", "committed"].includes(packageRow.status)) throw new Error("sealed_package_not_found");
-    const existingRound = await pool.query("SELECT id FROM access_rounds WHERE package_id = $1", [packageRow.id]);
+    const existingRound = await pool.query("SELECT id FROM access_rounds WHERE package_id = $1 AND network = 'devnet' AND confirmation_status = 'finalized' AND chain_state_source = 'rpc_verified'", [packageRow.id]);
     if (existingRound.rowCount) throw new Error("access_round_conflict");
     const active = await pool.query("SELECT * FROM jobs WHERE type = 'chain.publish' AND resource_type = 'dataset_package' AND resource_id = $1 AND status IN ('queued', 'running', 'retry_wait') ORDER BY created_at DESC LIMIT 1", [packageRow.id]);
     if (active.rowCount) return res.status(202).json({ job: active.rows[0], created: false });
@@ -272,7 +291,7 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
   }));
   owner.post("/access-rounds/:id/settle", route(async (req, res) => {
     if (!validUuid(req.params.id)) throw new Error("invalid_access_round_id");
-    const round = (await pool.query("SELECT * FROM access_rounds WHERE id = $1", [req.params.id])).rows[0];
+    const round = (await pool.query("SELECT * FROM access_rounds WHERE id = $1 AND network = 'devnet' AND confirmation_status = 'finalized' AND chain_state_source = 'rpc_verified'", [req.params.id])).rows[0];
     if (!round) throw new Error("access_round_not_settleable");
     const effectiveState = effectiveAccessRoundState(round);
     if (hasTemporalAccessRoundState(round) && effectiveState !== round.state) {
@@ -316,10 +335,10 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
   router.use((req, res, next) => isOwnerPath(req.path) ? owner.handle(req, res, next) : next());
   router.use("/owner", owner);
   router.get("/opportunities", route(async (_req, res) => {
-    const rows = await pool.query("SELECT package.*, commitment.dataset_pda, round.id AS access_round_id, round.round_pda, round.state AS round_state, round.opens_at, round.closes_at, round.minimum_bid_lamports, round.max_winners, round.bid_count, round.winners_count, round.clearing_price_lamports, round.settlement_rule FROM dataset_packages AS package JOIN blockchain_commitments AS commitment ON commitment.package_id = package.id AND commitment.confirmation_status = 'finalized' JOIN access_rounds AS round ON round.package_id = package.id AND round.confirmation_status = 'finalized' WHERE package.status = 'committed' ORDER BY package.created_at DESC");
-    res.json({ packages: rows.rows.map(publicPackage) });
+    const rows = await pool.query("SELECT package.*, commitment.dataset_pda, commitment.network AS commitment_network, commitment.confirmation_status AS commitment_confirmation_status, commitment.chain_state_source AS commitment_chain_state_source, round.id AS access_round_id, round.round_pda, round.state AS round_state, round.opens_at, round.closes_at, round.minimum_bid_lamports, round.max_winners, round.bid_count, round.winners_count, round.clearing_price_lamports, round.settlement_rule, round.network AS round_network, round.confirmation_status AS round_confirmation_status, round.chain_state_source AS round_chain_state_source FROM dataset_packages AS package JOIN blockchain_commitments AS commitment ON commitment.package_id = package.id AND commitment.network = 'devnet' AND commitment.confirmation_status = 'finalized' AND commitment.chain_state_source = 'rpc_verified' JOIN access_rounds AS round ON round.package_id = package.id AND round.network = 'devnet' AND round.confirmation_status = 'finalized' AND round.chain_state_source = 'rpc_verified' WHERE package.status = 'committed' ORDER BY package.created_at DESC");
+    res.json({ packages: rows.rows.filter(isVerifiedDevnetOpportunity).map(publicPackage) });
   }));
-  router.get("/opportunities/:id", route(async (req, res) => { const context = await packageContext(pool, req.params.id); if (!context || context.status !== "committed" || !context.dataset_pda || !context.round_pda) throw new Error("package_not_found"); res.json({ package: publicPackage(context) }); }));
+  router.get("/opportunities/:id", route(async (req, res) => { const context = await packageContext(pool, req.params.id); if (!isVerifiedDevnetOpportunity(context)) throw new Error("package_not_found"); res.json({ package: publicPackage(context) }); }));
   router.get("/packages/:id/proof", route(async (req, res) => {
     const context = await packageContext(pool, req.params.id); if (!context || !context.dataset_pda || !context.program_id) throw new Error("package_not_found");
     const chain = await readDatasetCommitment({ rpcUrl: solana.rpcUrl, programId: context.program_id, datasetPda: context.dataset_pda });
@@ -345,7 +364,7 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
   wallet.post("/access-rounds/:roundPda/bid-transaction", route(async (req, res) => {
     const tier = tierNumber(req.body?.tier); if (!tier) throw new Error("invalid_bid_tier");
     const amountLamports = Number(req.body?.amount_lamports);
-    const local = (await pool.query("SELECT * FROM access_rounds WHERE round_pda = $1 AND confirmation_status = 'finalized'", [req.params.roundPda])).rows[0];
+    const local = (await pool.query("SELECT * FROM access_rounds WHERE round_pda = $1 AND network = 'devnet' AND confirmation_status = 'finalized' AND chain_state_source = 'rpc_verified'", [req.params.roundPda])).rows[0];
     if (!local) throw new Error("access_round_not_found");
     const chain = await readAccessRound({ rpcUrl: solana.rpcUrl, programId: local.program_id, roundPda: local.round_pda });
     const now = Math.floor(Date.now() / 1_000);
@@ -359,7 +378,7 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
     const signature = String(req.body?.transaction_signature ?? "");
     const roundPda = String(req.body?.round_pda ?? "");
     const finalized = await readFinalizedSignature({ rpcUrl: solana.rpcUrl, signature }); if (!finalized) throw new Error("transaction_not_finalized");
-    const local = (await pool.query("SELECT round.*, package.id AS package_id FROM access_rounds AS round JOIN dataset_packages AS package ON package.id = round.package_id WHERE round.round_pda = $1", [roundPda])).rows[0];
+    const local = (await pool.query("SELECT round.*, package.id AS package_id FROM access_rounds AS round JOIN dataset_packages AS package ON package.id = round.package_id WHERE round.round_pda = $1 AND round.network = 'devnet' AND round.confirmation_status = 'finalized' AND round.chain_state_source = 'rpc_verified'", [roundPda])).rows[0];
     if (!local) throw new Error("access_round_not_found");
     const bid = await readBid({ rpcUrl: solana.rpcUrl, programId: local.program_id, roundPda, bidder: req.wallet.address });
     if (!bid || !await transactionTouchesAccounts({ rpcUrl: solana.rpcUrl, signature, required: [local.program_id, roundPda, bid.bidPda, req.wallet.address] })) throw new Error("bid_not_found");
@@ -369,7 +388,7 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
     res.json({ package_id: local.package_id, round_pda: roundPda, bid_pda: bid.bidPda, amount_lamports: bid.amountLamports, tier, status: "finalized" });
   }));
   wallet.post("/access-rounds/:roundPda/claim-transaction", route(async (req, res) => {
-    const local = (await pool.query("SELECT round.*, commitment.dataset_pda FROM access_rounds AS round JOIN blockchain_commitments AS commitment ON commitment.package_id = round.package_id AND commitment.confirmation_status = 'finalized' WHERE round.round_pda = $1 AND round.state IN ('settled', 'access_granted')", [req.params.roundPda])).rows[0];
+    const local = (await pool.query("SELECT round.*, commitment.dataset_pda FROM access_rounds AS round JOIN blockchain_commitments AS commitment ON commitment.package_id = round.package_id AND commitment.network = 'devnet' AND commitment.confirmation_status = 'finalized' AND commitment.chain_state_source = 'rpc_verified' WHERE round.round_pda = $1 AND round.network = 'devnet' AND round.confirmation_status = 'finalized' AND round.chain_state_source = 'rpc_verified' AND round.state IN ('settled', 'access_granted')", [req.params.roundPda])).rows[0];
     if (!local?.decoded_state?.treasury) throw new Error("access_round_not_settled");
     const transaction = await buildClaimEntitlementTransaction({ rpcUrl: solana.rpcUrl, programId: local.program_id, commitmentPda: local.dataset_pda, roundPda: local.round_pda, treasury: local.decoded_state.treasury, bidder: req.wallet.address });
     res.json({ ...transaction, transaction_base64: transaction.transactionBase64 });
@@ -377,7 +396,7 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
   wallet.post("/entitlements/confirm", route(async (req, res) => {
     const signature = String(req.body?.transaction_signature ?? ""); const roundPda = String(req.body?.round_pda ?? "");
     const finalized = await readFinalizedSignature({ rpcUrl: solana.rpcUrl, signature }); if (!finalized) throw new Error("transaction_not_finalized");
-    const local = (await pool.query("SELECT round.*, commitment.dataset_pda FROM access_rounds AS round JOIN blockchain_commitments AS commitment ON commitment.package_id = round.package_id AND commitment.confirmation_status = 'finalized' WHERE round.round_pda = $1", [roundPda])).rows[0];
+    const local = (await pool.query("SELECT round.*, commitment.dataset_pda FROM access_rounds AS round JOIN blockchain_commitments AS commitment ON commitment.package_id = round.package_id AND commitment.network = 'devnet' AND commitment.confirmation_status = 'finalized' AND commitment.chain_state_source = 'rpc_verified' WHERE round.round_pda = $1 AND round.network = 'devnet' AND round.confirmation_status = 'finalized' AND round.chain_state_source = 'rpc_verified'", [roundPda])).rows[0];
     if (!local) throw new Error("access_round_not_found");
     const entitlement = await readAccessEntitlement({ rpcUrl: solana.rpcUrl, programId: local.program_id, roundPda, wallet: req.wallet.address });
     if (!entitlement || entitlement.datasetCommitment !== local.dataset_pda || !await transactionTouchesAccounts({ rpcUrl: solana.rpcUrl, signature, required: [local.program_id, roundPda, entitlement.entitlementPda, req.wallet.address] })) throw new Error("entitlement_not_found");
@@ -388,19 +407,19 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
     res.json({ package_id: local.package_id, round_pda: roundPda, entitlement_pda: entitlement.entitlementPda, tier, status: "finalized" });
   }));
   wallet.post("/access-rounds/:roundPda/refund-transaction", route(async (req, res) => {
-    const local = (await pool.query("SELECT * FROM access_rounds WHERE round_pda = $1 AND state IN ('settled', 'access_granted')", [req.params.roundPda])).rows[0];
+    const local = (await pool.query("SELECT * FROM access_rounds WHERE round_pda = $1 AND network = 'devnet' AND confirmation_status = 'finalized' AND chain_state_source = 'rpc_verified' AND state IN ('settled', 'access_granted')", [req.params.roundPda])).rows[0];
     if (!local) throw new Error("access_round_not_settled");
     const transaction = await buildRefundLosingBidTransaction({ rpcUrl: solana.rpcUrl, programId: local.program_id, roundPda: local.round_pda, bidder: req.wallet.address });
     res.json({ ...transaction, transaction_base64: transaction.transactionBase64 });
   }));
   wallet.get("/wallet/access-entitlements", route(async (req, res) => {
-    const rounds = await pool.query("SELECT round.package_id, round.round_pda, round.program_id, round.state, round.opens_at, round.closes_at FROM access_rounds AS round WHERE round.confirmation_status = 'finalized'");
+    const rounds = await pool.query("SELECT round.package_id, round.round_pda, round.program_id, round.state, round.opens_at, round.closes_at FROM access_rounds AS round WHERE round.network = 'devnet' AND round.confirmation_status = 'finalized' AND round.chain_state_source = 'rpc_verified'");
     const entitlements = [];
     for (const round of rounds.rows) { const entitlement = await readAccessEntitlement({ rpcUrl: solana.rpcUrl, programId: round.program_id, roundPda: round.round_pda, wallet: req.wallet.address }); if (entitlement) entitlements.push({ package_id: round.package_id, round_state: effectiveAccessRoundState(round), ...entitlement, tier: tierName(entitlement.tier) }); }
     res.json({ entitlements });
   }));
   wallet.get("/wallet/auction-positions", route(async (req, res) => {
-    const positions = await pool.query("SELECT bid.amount_lamports, bid.tier, bid.status, bid.placed_at, round.round_pda, round.state AS round_state, round.opens_at, round.closes_at, round.max_winners, round.winners_count, package.id AS package_id, package.public_metadata FROM auction_bids AS bid JOIN access_rounds AS round ON round.id = bid.access_round_id JOIN dataset_packages AS package ON package.id = round.package_id WHERE bid.wallet_id = $1 ORDER BY bid.placed_at DESC", [req.wallet.wallet_id]);
+    const positions = await pool.query("SELECT bid.amount_lamports, bid.tier, bid.status, bid.placed_at, round.round_pda, round.state AS round_state, round.opens_at, round.closes_at, round.max_winners, round.winners_count, package.id AS package_id, package.public_metadata FROM auction_bids AS bid JOIN access_rounds AS round ON round.id = bid.access_round_id JOIN dataset_packages AS package ON package.id = round.package_id WHERE bid.wallet_id = $1 AND round.network = 'devnet' AND round.confirmation_status = 'finalized' AND round.chain_state_source = 'rpc_verified' ORDER BY bid.placed_at DESC", [req.wallet.wallet_id]);
     res.json({ positions: positions.rows.map((position) => ({ ...position, round_state: effectiveAccessRoundState(position) })) });
   }));
   async function protectedContext(req) {
