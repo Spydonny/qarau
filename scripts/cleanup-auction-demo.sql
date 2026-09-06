@@ -1,18 +1,19 @@
 -- Removes everything scripts/seed-auction-demo.sql inserted, and nothing else.
--- Selection is by the demo_seed marker, never by id ranges or timestamps.
+-- Selection is by the durable chain-state provenance marker, never by id
+-- ranges or timestamps.
 BEGIN;
 
 DELETE FROM access_entitlement_cache e
  USING access_rounds r
- WHERE e.access_round_id = r.id AND r.decoded_state->>'demo_seed' = 'true';
+ WHERE e.access_round_id = r.id AND r.chain_state_source = 'synthetic_demo';
 
 DELETE FROM auction_bids b
  USING access_rounds r
- WHERE b.access_round_id = r.id AND r.decoded_state->>'demo_seed' = 'true';
+ WHERE b.access_round_id = r.id AND r.chain_state_source = 'synthetic_demo';
 
-DELETE FROM access_rounds WHERE decoded_state->>'demo_seed' = 'true';
+DELETE FROM access_rounds WHERE chain_state_source = 'synthetic_demo';
 
-DELETE FROM blockchain_commitments WHERE decoded_account->>'demo_seed' = 'true';
+DELETE FROM blockchain_commitments WHERE chain_state_source = 'synthetic_demo';
 
 DELETE FROM dataset_packages WHERE public_metadata->>'demo_seed' = 'true';
 
