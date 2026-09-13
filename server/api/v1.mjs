@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createRepositories } from "../db/repositories/index.mjs";
 import { HASH_DOMAINS, canonicalJsonBytes, hashBytes, validateAccessPolicy } from "../domain/canonical-artifacts.mjs";
 import { effectiveAccessRoundState, hasTemporalAccessRoundState } from "../domain/access-round-state.mjs";
+import { buildDeliveredView } from "../domain/delivered-view.mjs";
 import { jobIdempotencyKey } from "../jobs/payloads.mjs";
 import { PostgresJobQueue } from "../jobs/queue.mjs";
 import { normalizeRows } from "../normalization/canonical-jsonl.mjs";
@@ -20,7 +21,7 @@ function errorStatus(error) {
   const message = String(error?.message ?? "operation_failed");
   if (/not_found|_not_found/.test(message)) return 404;
   if (/access_denied|wallet_unauthorized|grant_/.test(message)) return 403;
-  if (/invalid|unsupported|required|unsafe|unavailable|not_sealed|not_complete|not_active|not_approved|not_settled|not_settleable|still_open|not_open|below_minimum|tier_not_enabled|screening_failed|conflict/.test(message)) return 400;
+  if (/invalid|unsupported|required|unsafe|unavailable|not_sealed|not_complete|not_active|not_approved|not_settled|not_settleable|still_open|not_open|below_minimum|tier_not_enabled|screening_failed|already_placed|conflict/.test(message)) return 400;
   return 500;
 }
 function route(handler) {
@@ -132,10 +133,10 @@ export async function chooseProtectedVersion(pool, context, grant) {
   if (grant.tier !== 2) throw new Error("grant_tier_invalid");
   if (Math.floor(Date.now() / 1_000) < grant.grantedAt + Number(policy.delayed.release_seconds)) throw new Error("delayed_access_not_released");
   const requested = context.dataset_version - Number(policy.delayed.version_lag);
-  const version = await pool.query("SELECT id, version, normalized_object_key FROM dataset_versions WHERE dataset_id = $1 AND version <= $2 AND status = 'sealed' ORDER BY version DESC LIMIT 1", [context.dataset_id, requested]);
+  const version = await pool.query("SELECT id, version, normalized_object_key, normalized_hash FROM dataset_versions WHERE dataset_id = $1 AND version <= $2 AND status = 'sealed' ORDER BY version DESC LIMIT 1", [context.dataset_id, requested]);
   if (!version.rowCount) throw new Error("delayed_version_unavailable");
   const analysis = await pool.query(
-    `SELECT run.id AS analysis_run_id, run.report_object_key,
+    `SELECT run.id AS analysis_run_id, run.report_object_key, run.result_hash,
             (SELECT candidate.artifact_object_key FROM signal_candidates AS candidate
              WHERE candidate.analysis_run_id = run.id
              ORDER BY candidate.id LIMIT 1) AS derived_signal_object_key
@@ -153,9 +154,11 @@ export async function chooseProtectedVersion(pool, context, grant) {
   return {
     ...context,
     normalized_object_key: version.rows[0].normalized_object_key,
+    normalized_dataset_hash: version.rows[0].normalized_hash,
     dataset_version: version.rows[0].version,
     analysis_run_id: artifacts.analysis_run_id,
     report_object_key: artifacts.report_object_key,
+    analysis_result_hash: artifacts.result_hash,
     derived_signal_object_key: artifacts.derived_signal_object_key,
   };
 }
@@ -371,6 +374,9 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
     if (!chain || chain.status !== 1 || now < chain.opensAt || now > chain.closesAt) throw new Error("auction_not_active");
     if (!Number.isSafeInteger(amountLamports) || amountLamports < chain.minimumBidLamports) throw new Error("bid_below_minimum");
     if ((chain.enabledTierMask & tier) === 0) throw new Error("bid_tier_not_enabled");
+    // A Bid PDA is permanent for (round, wallet). Surface that fact before a
+    // wallet opens its signer, rather than producing an opaque Anchor error.
+    if (await readBid({ rpcUrl: solana.rpcUrl, programId: local.program_id, roundPda: local.round_pda, bidder: req.wallet.address })) throw new Error("bid_already_placed");
     const transaction = await buildBidTransaction({ rpcUrl: solana.rpcUrl, programId: local.program_id, roundPda: local.round_pda, bidder: req.wallet.address, amountLamports, tier });
     res.json({ ...transaction, transaction_base64: transaction.transactionBase64, tier: tierName(tier) });
   }));
@@ -432,6 +438,13 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
     return { context: { ...selected, deliverable_object_key: objectKey }, grant: entitlement };
   }
   async function audited(req, action, resourceId, metadata = {}) { await repositories.audits.create({ actor_type: "wallet", actor_id: req.wallet.wallet_id, wallet_address: req.wallet.address, action, resource_type: "dataset_package", resource_id: resourceId, outcome: "allowed", metadata }); }
+  wallet.get("/dataset/:packageId/view", route(async (req, res) => {
+    const { context, grant } = await protectedContext(req);
+    const bytes = await streamBytes(await artifactStore.getStream(context.deliverable_object_key));
+    const reportBytes = await streamBytes(await artifactStore.getStream(context.report_object_key));
+    await audited(req, "dataset_view_read", context.id, { entitlement_pda: grant.entitlementPda, dataset_version: context.dataset_version });
+    res.json(buildDeliveredView({ context, grant, bytes, reportBytes }));
+  }));
   wallet.get("/dataset/:packageId/metadata", route(async (req, res) => { const { context, grant } = await protectedContext(req); const bytes = await streamBytes(await artifactStore.getStream(context.private_metadata_object_key)); await audited(req, "dataset_metadata_read", context.id, { entitlement_pda: grant.entitlementPda }); res.type("application/json").send(bytes); }));
   wallet.get("/dataset/:packageId/report", route(async (req, res) => { const { context, grant } = await protectedContext(req); const bytes = await streamBytes(await artifactStore.getStream(context.report_object_key)); await audited(req, "dataset_report_read", context.id, { entitlement_pda: grant.entitlementPda }); res.type("application/json").send(bytes); }));
   wallet.get("/dataset/:packageId/:kind", route(async (req, res) => { if (!["data", "export"].includes(req.params.kind)) throw new Error("artifact_not_found"); const { context, grant } = await protectedContext(req); const stream = await artifactStore.getStream(context.deliverable_object_key); await audited(req, req.params.kind === "export" ? "dataset_export" : "dataset_data_read", context.id, { entitlement_pda: grant.entitlementPda, dataset_version: context.dataset_version, artifact_form: context.redistribution_rights ? "normalized" : "derived" }); res.type("application/x-ndjson"); if (req.params.kind === "export") res.setHeader("Content-Disposition", `attachment; filename="qarau-${context.id}-v${context.dataset_version}.jsonl"`); stream.pipe(res); }));

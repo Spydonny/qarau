@@ -1,21 +1,38 @@
-# QARAU / Internal
+# QARAU — verifiable research access on Solana Devnet
 
-QARAU is an owner-only discovery and research workbench for testing whether
-physical-world data adds out-of-sample predictive information to a financial target.
-It discovers and normalizes sources, generates hypotheses, ranks candidates, runs
-leakage-safe tests, and batches private provenance into Solana Merkle-root commitments.
+QARAU turns licensed physical-world data into leakage-safe quantitative research, then
+allocates access through transparent Top-N rounds. The buyer-facing catalog exposes only
+safe evidence and the Devnet commitment; source URLs, raw datasets, hypotheses and
+statistics stay in the private trust domain. A winner claims a wallet-bound entitlement
+before reading the authorized artifact.
 
-The app uses live provider data, never generated market or weather fallbacks. A result is
-research evidence, not investment advice or a claim of durable alpha.
+This is research infrastructure, not investment advice or a claim of durable alpha.
+
+## Reviewer demo (no wallet or SOL required)
+
+```bash
+npm install
+npm run dev
+```
+
+Open http://localhost:5173/opportunities (or add `?demo=1`). Choose **My Access**,
+select **Continue as demo bidder**, place one bid, wait 30 seconds, then claim it. The
+delivered research panel, export, and proof UI will appear. Demo mode is explicitly local:
+it creates no wallet transaction, moves no SOL, and must not be presented as Devnet proof.
+
+For live rounds, use `?demo=0`, a Wallet Standard Devnet wallet, and the integrated runtime
+described below. One wallet can place only one irreversible bid per access round; after
+settlement it either claims its entitlement or refunds a losing bid.
 
 ## Architecture
 
-- React/TypeScript reuses the existing QARAU interface.
-- Express exposes authenticated REST APIs, bounded background jobs, rate limits, and
-  server-side owner sessions.
+- React/TypeScript provides public discovery, auctions, proof, wallet access and the
+  owner workbench.
+- Express exposes authenticated REST APIs, bounded background jobs, owner sessions and
+  Sign-In With Solana wallet sessions.
 - Provider adapters fetch public data through a DNS-pinned SSRF boundary.
-- Immutable source/target snapshots and research records are stored in one AES-256-GCM
-  encrypted local state file for this single-node MVP.
+- `legacy` mode uses one AES-256-GCM encrypted state file. `integrated` mode uses
+  PostgreSQL plus private S3-compatible object storage and mounts `/api/v1`.
 - The semantic analyzer is local by default. An optional OpenAI-compatible adapter gets
   only an `AI_SAFE` abstraction and must return a strict JSON schema.
 - Alpha Lab runs predetermined statistical operations over exact snapshot IDs.
@@ -39,7 +56,7 @@ template, then run:
 npm run dev
 ```
 
-- App: http://localhost:5173
+- App: http://localhost:5173 (legacy owner UI plus local reviewer demo)
 - API: http://localhost:8787
 - Health: http://localhost:8787/api/health
 - OpenAPI description: http://localhost:8787/api/openapi.json
@@ -49,17 +66,21 @@ If no password hash is configured, QARAU creates a one-process random password a
 it once. It changes at restart. To run the built app from one origin, use
 `npm run build && npm start` and open http://localhost:8787.
 
-Docker runs the same built single-node MVP and persists its encrypted private volume:
+### Integrated runtime (real `/api/v1` pipeline)
+
+The compose stack has a migration job intentionally separated from normal services. Run it
+once before starting the workers; otherwise PostgreSQL roles exist but the schema does not.
 
 ```bash
-docker compose up --build
+docker compose up -d --build postgres object-storage object-storage-init
+docker compose --profile tools run --rm migrate
+docker compose up -d --build
 ```
 
-The repository is now migrating through the staged integration plan. Node.js 24 and the
-root `package-lock.json` are authoritative for the API, workers, scheduler, and isolated
-publisher signer. `docker compose up --build` starts PostgreSQL, private object storage,
-the compatibility API, and the Wave 0 process foundations. Worker capabilities remain
-explicitly `foundation-only` until their durable handlers land in later waves.
+Open http://localhost:8787 after the stack is healthy. Node.js 24 and the root
+`package-lock.json` are authoritative for all local processes. Set
+`QARAU_WORKER_EXECUTE=true` only for roles whose real external credentials have been
+configured; workers otherwise report `foundation-only` and intentionally idle.
 
 See `docs/runtime/services.md`, `docs/runtime/credential-matrix.md`, and
 `QARAU_MVP_INTEGRATION_PLAN.md` for service boundaries and the delivery sequence.
@@ -131,10 +152,10 @@ mapping is added to the public provenance transaction.
 
 ## Solana Devnet
 
-Source and analysis records use separate canonical domains, random 32-byte salts, and
-private Merkle proofs. At a configurable fixed cadence (`COMMITMENT_EPOCH_MINUTES`, default
-six hours), only epoch, schema version, and Merkle root leave QARAU. Immediate mode exists
-only when `DEV_ALLOW_IMMEDIATE_COMMIT=true`.
+The current program ID is
+[`63VZwKUPcWqo2JwpQHLxT4HHgQsMREpERZg3DpfSnnMw`](https://explorer.solana.com/address/63VZwKUPcWqo2JwpQHLxT4HHgQsMREpERZg3DpfSnnMw?cluster=devnet).
+It stores only domain-separated artifact hashes and implements dataset commitments, access
+rounds, deterministic Top-N settlement, bids, entitlements and losing-bid refunds.
 
 Show the operational Devnet address without exposing its key:
 
@@ -142,11 +163,10 @@ Show the operational Devnet address without exposing its key:
 npm run signer:address
 ```
 
-Fund that address with a small amount of Devnet SOL. `DEV_AUTO_AIRDROP=true` permits the
-isolated signer to request test SOL, but public faucet rate limits may still require manual
-funding. The key and idempotency ledger live under ignored `server/data/private/signer/`.
-The signer is Devnet-only, Memo-program allowlisted, limited to 24 transactions/day, uses
-preflight, and waits for confirmation. Failed signing leaves commitments queued.
+Fund that address with a small amount of Devnet SOL. The key and idempotency ledger live
+under ignored `server/data/private/signer/`. The signer is Devnet-only and receives only a
+bounded publish intent; it has no source URLs, datasets, or hypotheses. Failed signing
+leaves commitments queued.
 
 The repository also contains the `qarau_registry` Anchor program. It creates one authority
 registry PDA and immutable epoch-root PDAs, validates authority/schema/PDA constraints,
@@ -161,22 +181,20 @@ anchor deploy --provider.cluster devnet
 ```
 
 `Anchor.toml` records the current Devnet program ID and development authority path. The
-program is compiled and tested here but is not deployed automatically. The operational
-MVP transport uses the standard Memo program until deployment is explicitly completed.
+program is not deployed automatically. Before a live publish, verify that
+`npm run signer:address` matches the registry authority on Devnet. In the current checked
+deployment they differ, so publishing new commitments is intentionally blocked until the
+original authority is recovered or a new registry/program deployment is initialized. This
+is a real deployment prerequisite, not something demo mode simulates.
 
-## Demo flow
+## End-to-end owner flow
 
-1. Log in and open **Data**.
-2. Run bounded public-catalog discovery or add a URL/API/CSV source.
-3. Filter/sort the registry and open a source.
-4. Parse it, run structured analysis, and review scores/risks.
-5. Connect a real provider snapshot or upload source data.
-6. Choose ECB/custom-equity/CSV target, lag range, and prediction horizon.
-7. Run Alpha Test and inspect fold metrics and leakage warnings.
-8. Queue source and analysis provenance.
-9. Let the fixed epoch run, or use immediate development mode.
-10. Only after a real confirmed Devnet transaction does the UI show a signature and
-    `COMMITTED_ONCHAIN`.
+1. Discover and screen a source; approve license redistribution or derivative rights.
+2. Ingest it through the DNS-pinned fetch boundary and seal a normalized dataset version.
+3. Run analysis against a market target. Blocking leakage prevents packaging.
+4. Seal a package, publish its hash commitment and access round through the isolated signer.
+5. Reconcile finalized Devnet state, then expose the public opportunity.
+6. Wallet users bid, the round settles Top-N, winners claim and read only their entitled data.
 
 ## Verification
 

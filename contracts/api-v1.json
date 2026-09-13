@@ -35,6 +35,7 @@
     { "method": "POST", "path": "/access-rounds/{roundPda}/refund-transaction", "security": "wallet", "response": "UnsignedRefundTransaction" },
     { "method": "GET", "path": "/wallet/auction-positions", "security": "wallet", "response": "AuctionPositionList" },
     { "method": "GET", "path": "/wallet/access-entitlements", "security": "wallet", "response": "AccessEntitlementList" },
+    { "method": "GET", "path": "/dataset/{packageId}/view", "security": "wallet_finalized_entitlement", "response": "DeliveredDatasetView" },
     { "method": "GET", "path": "/dataset/{packageId}/metadata", "security": "wallet_finalized_entitlement", "response": "ProtectedMetadata" },
     { "method": "GET", "path": "/dataset/{packageId}/report", "security": "wallet_finalized_entitlement", "response": "ProtectedArtifact" },
     { "method": "GET", "path": "/dataset/{packageId}/data", "security": "wallet_finalized_entitlement", "response": "ProtectedArtifact" },
@@ -80,6 +81,12 @@
       "transport": "backend_stream",
       "forbidden": ["signed_url", "object_key"],
       "query": { "version": "optional_positive_u32_bounded_by_grant" }
+    },
+    "DeliveredDatasetView": {
+      "required": ["package_id", "title", "columns", "rows", "proof", "summary", "download_url"],
+      "transport": "entitlement_gated_json",
+      "forbidden": ["signed_url", "object_key"],
+      "additional_properties": false
     }
   }
 }

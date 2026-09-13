@@ -252,6 +252,7 @@ pub mod qarau_registry {
     /// Escrows one immutable bid and updates the on-chain sorted leaderboard.
     pub fn place_bid(ctx: Context<PlaceBid>, amount_lamports: u64, tier: u8) -> Result<()> {
         let now = Clock::get()?.unix_timestamp;
+        validate_new_bid(ctx.accounts.bid.access_round)?;
         let round = &mut ctx.accounts.access_round;
         require!(
             round.status == AUCTION_STATUS_ACTIVE,
@@ -434,6 +435,14 @@ fn winner_count(max_winners: u32, bid_count: u32) -> u32 {
     max_winners.min(bid_count)
 }
 
+fn validate_new_bid(existing_round: Pubkey) -> Result<()> {
+    require!(
+        existing_round == Pubkey::default(),
+        RegistryError::BidAlreadyPlaced
+    );
+    Ok(())
+}
+
 fn nonzero(value: [u8; 32]) -> bool {
     value != [0; 32]
 }
@@ -571,7 +580,7 @@ pub struct PlaceBid<'info> {
     pub registry: Account<'info, Registry>,
     #[account(mut, seeds = [b"auction", access_round.dataset_commitment.as_ref()], bump = access_round.bump)]
     pub access_round: Account<'info, AccessRound>,
-    #[account(init, payer = bidder, space = 8 + Bid::INIT_SPACE, seeds = [b"bid", access_round.key().as_ref(), bidder.key().as_ref()], bump)]
+    #[account(init_if_needed, payer = bidder, space = 8 + Bid::INIT_SPACE, seeds = [b"bid", access_round.key().as_ref(), bidder.key().as_ref()], bump)]
     pub bid: Account<'info, Bid>,
     #[account(mut)]
     pub bidder: Signer<'info>,
@@ -806,6 +815,8 @@ pub enum RegistryError {
     InvalidAuction,
     #[msg("Bid escrow balance is invalid")]
     InvalidBidEscrow,
+    #[msg("This wallet already has a bid in this access round")]
+    BidAlreadyPlaced,
 }
 
 #[cfg(test)]
@@ -872,5 +883,11 @@ mod tests {
         assert_eq!(winner_count(3, 0), 0);
         assert_eq!(winner_count(3, 2), 2);
         assert_eq!(winner_count(3, 8), 3);
+    }
+
+    #[test]
+    fn rejects_a_second_bid_from_the_same_wallet_for_one_round() {
+        assert!(validate_new_bid(Pubkey::default()).is_ok());
+        assert!(validate_new_bid(Pubkey::new_from_array([7; 32])).is_err());
     }
 }

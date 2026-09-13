@@ -23,6 +23,12 @@ test("CSP allows React layout styles without allowing inline scripts", async () 
   assert.equal(server.includes("script-src 'self' 'unsafe-inline'"), false);
 });
 
+test("delivered research proof does not bypass the self-only CSP", async () => {
+  const component = await readFile(rootFile("src/components/DeliveredResearch.tsx"), "utf8");
+  assert.equal(component.includes("api.devnet.solana.com"), false);
+  assert.match(component, /proof\.verified/);
+});
+
 test("Devnet publication can resume after a failed attempt", async () => {
   const api = await readFile(rootFile("server/api/v1.mjs"), "utf8");
   const chain = await readFile(rootFile("server/jobs/handlers/chain-publish.mjs"), "utf8");

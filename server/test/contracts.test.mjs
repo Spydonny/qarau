@@ -65,9 +65,13 @@ test("API contract separates public, wallet, owner, and finalized-entitlement bo
   assert.equal(endpoints.get("GET /opportunities").security, "public");
   assert.equal(endpoints.get("POST /discovery/jobs").security, "owner");
   assert.equal(endpoints.get("POST /access-rounds/{roundPda}/bid-transaction").security, "wallet");
-  for (const role of ["metadata", "report", "data", "export"]) {
+  for (const role of ["view", "metadata", "report", "data", "export"]) {
     assert.equal(endpoints.get(`GET /dataset/{packageId}/${role}`).security, "wallet_finalized_entitlement");
   }
+  assert.ok(contract.schemas.DeliveredDatasetView.forbidden.includes("object_key"));
+  const client = await readFile(new URL("../../src/api/client.ts", import.meta.url), "utf8");
+  assert.match(client, /`\/api\/v1\/dataset\/\$\{packageId\}\/view`/);
+  assert.equal(client.includes("/api/v1/wallet/dataset/"), false);
   assert.deepEqual(contract.schemas.BidTransactionRequest.forbidden, ["bidder", "treasury", "bid_pda", "program_id"]);
   assert.ok(contract.schemas.ProtectedArtifact.forbidden.includes("signed_url"));
 });

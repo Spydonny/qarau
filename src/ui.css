@@ -104,6 +104,89 @@
 .market-state { display: grid; grid-template-columns: minmax(240px, .9fr) minmax(0, 1.1fr); gap: 64px; align-items: start; padding: 42px 0; border-bottom: 1px solid var(--border); }
 .market-state .h2 { margin-top: 12px; }
 .market-state .body-sm { max-width: 50ch; }
+
+/* Access rounds read as a stack of discrete records rather than one wall of
+   text, so a bid always has a visible boundary around it. */
+.market-package { padding: 22px 24px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-1); transition: border-color 160ms var(--ease); }
+.market-package + .market-package { margin-top: 14px; }
+.market-package:hover { border-color: var(--border-strong); }
+.market-package .h2 { margin-top: 10px; }
+.market-package .body-sm { max-width: 46ch; }
+.market-package .source-actions { align-items: stretch; }
+
+/* Text inputs had no rule at all and fell back to the user agent's grey box. */
+.input {
+  min-width: 0;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease), background 160ms var(--ease);
+}
+.input::placeholder { color: var(--text-3); letter-spacing: 0.08em; }
+.input:hover:not(:disabled) { border-color: var(--metal-mid); }
+/* A text field has to look editable the moment it is active, so the border and
+   ground shift on plain focus; the glow ring stays keyboard-only, matching the
+   :focus-visible convention in index.css. */
+.input:focus { border-color: var(--metal-hi); background: var(--surface-2); }
+.input:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--brand-glow); }
+.input:disabled { opacity: 0.45; cursor: default; }
+/* Firefox and WebKit both add stepper chrome that this mono field has no use for. */
+.input[inputmode="numeric"] { -moz-appearance: textfield; text-align: right; padding-right: 92px; }
+.input[inputmode="numeric"]::-webkit-outer-spin-button,
+.input[inputmode="numeric"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* Headline figures are numbers, not plots, so they get tiles rather than charts. */
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1px; margin-top: 20px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.stat { padding: 14px 16px; background: var(--surface-2); }
+.stat-value { margin: 8px 0 0; font-family: var(--font-mono); font-size: 22px; line-height: 1; color: var(--text); letter-spacing: -0.01em; }
+.stat .body-sm { margin-top: 6px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.12em; font-size: 10px; }
+.stat-row-tight { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.chart-title { margin-top: 26px; }
+
+/* Direction is written out; the tone only reinforces the word beside it. */
+.signal { color: var(--text-3); }
+.signal-long { color: #3E9E70; }
+.signal-short { color: #C2564E; }
+
+.proof-links { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 0; }
+.proof-link { font-family: var(--font-mono); font-size: 12px; color: var(--text-2); border-bottom: 1px solid var(--border-strong); align-self: flex-start; transition: color 160ms var(--ease), border-color 160ms var(--ease); }
+.proof-link:hover { color: var(--text); border-color: var(--metal-mid); }
+.proof-pending, .proof-absent { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); }
+.mono-hash { margin-top: 10px; font-family: var(--font-mono); font-size: 10px; color: var(--text-3); letter-spacing: 0.04em; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Delivered research is tabular; it scrolls inside its card so the page never does. */
+.data-scroll { margin-top: 16px; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.data-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12px; }
+.data-table th, .data-table td { padding: 9px 14px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--border); }
+.data-table th:first-child, .data-table td:first-child, .data-table th:last-child, .data-table td:last-child { text-align: left; }
+.data-table th { color: var(--text-3); font-weight: 400; letter-spacing: 0.12em; text-transform: uppercase; font-size: 10px; background: var(--surface-2); }
+.data-table td { color: var(--text-2); }
+.data-table tbody tr:last-child td { border-bottom: 0; }
+.data-table tbody tr:hover td { color: var(--text); background: rgba(255, 255, 255, 0.02); }
+
+/* The unit sits inside the field so the number and its denomination read as one value. */
+.bid-field { position: relative; display: flex; align-items: center; flex: 1 1 240px; min-width: 200px; }
+.bid-field-unit {
+  position: absolute;
+  right: 16px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  pointer-events: none;
+}
+.bid-field:focus-within .bid-field-unit { color: var(--text-2); }
+
 .market-trust { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; padding-top: 42px; }
 .market-trust > div { padding-top: 16px; border-top: 1px solid var(--border); }
 .market-trust p:last-child { margin: 14px 0 0; max-width: 28ch; color: var(--text-2); font-size: 14px; line-height: 1.6; }
@@ -765,6 +848,12 @@ a.sig-trow:hover {
 @media (max-width: 560px) {
   .market-state, .market-trust { grid-template-columns: 1fr; gap: 26px; }
   .market-brand .meta { display: none; }
+  .market-nav-inner { min-width: 0; gap: 8px; }
+  .market-brand { flex: 0 0 auto; }
+  .market-brand img { width: 86px; }
+  .market-network { display: none; }
+  .public-links { min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .public-links::-webkit-scrollbar { display: none; }
   .nav-links { gap: 13px; margin-right: 11px; }
   .nav-link { font-size: 9.5px; letter-spacing: 0.06em; white-space: nowrap; }
   .nav-inner { gap: 10px; }

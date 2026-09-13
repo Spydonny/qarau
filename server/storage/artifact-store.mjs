@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand, HeadBucketCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 const ALLOWED_PREFIXES = Object.freeze(["raw/", "normalized/", "analysis/", "packages/"]);
 const HASH_PATTERN = /^[0-9a-f]{64}$/;
@@ -16,6 +16,19 @@ export function validateArtifactKey(key) {
 
 function contentHash(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
+}
+
+async function readBody(body, maxBytes) {
+  if (!body) throw new Error("artifact_body_missing");
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of body) {
+    const bytes = Buffer.from(chunk);
+    size += bytes.length;
+    if (size > maxBytes) throw new Error("artifact_too_large");
+    chunks.push(bytes);
+  }
+  return Buffer.concat(chunks);
 }
 
 function isMissing(error) {
@@ -63,6 +76,11 @@ export class S3ArtifactStore {
     }
   }
 
+  async ready() {
+    await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+    return true;
+  }
+
   async putOnce({ key, bytes, artifactHash, contentType = "application/octet-stream" }) {
     validateArtifactKey(key);
     if (!Buffer.isBuffer(bytes) || bytes.length === 0 || bytes.length > this.maxBytes) throw new Error("invalid_artifact_bytes");
@@ -101,6 +119,23 @@ export class S3ArtifactStore {
     const result = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
     if (!result.Body) throw new Error("artifact_body_missing");
     return result.Body;
+  }
+
+  async getVerifiedBytes({ key, expectedArtifactHash = null }) {
+    validateArtifactKey(key);
+    const result = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+    const bytes = await readBody(result.Body, this.maxBytes);
+    const storedContentHash = result.Metadata?.["content-sha256"];
+    const storedArtifactHash = result.Metadata?.["artifact-hash"];
+    if (!HASH_PATTERN.test(storedContentHash ?? "") || contentHash(bytes) !== storedContentHash) throw new Error("artifact_content_hash_mismatch");
+    if (!HASH_PATTERN.test(storedArtifactHash ?? "")) throw new Error("artifact_hash_metadata_missing");
+    if (expectedArtifactHash !== null) {
+      const expected = Buffer.isBuffer(expectedArtifactHash) ? expectedArtifactHash.toString("hex") : String(expectedArtifactHash);
+      if (!HASH_PATTERN.test(expected) || storedArtifactHash !== expected) throw new Error("artifact_commitment_mismatch");
+    }
+    if (Number.isFinite(Number(result.ContentLength)) && Number(result.ContentLength) !== bytes.length) throw new Error("artifact_length_mismatch");
+    if (this.requireServerSideEncryption && result.ServerSideEncryption !== "AES256") throw new Error("artifact_encryption_missing");
+    return bytes;
   }
 
   async authorizedStream({ key, authorize }) {

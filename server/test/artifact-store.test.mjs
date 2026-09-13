@@ -21,8 +21,9 @@ class MemoryS3 {
     if (command.constructor.name === "GetObjectCommand") {
       const object = this.objects.get(Key);
       if (!object) throw Object.assign(new Error("missing"), { name: "NoSuchKey", $metadata: { httpStatusCode: 404 } });
-      return { Body: Readable.from(object.bytes) };
+      return { Body: Readable.from(object.bytes), ContentLength: object.bytes.length, Metadata: object.metadata, ServerSideEncryption: object.encryption };
     }
+    if (command.constructor.name === "HeadBucketCommand") return {};
     throw new Error("unsupported_test_command");
   }
 }
@@ -52,4 +53,15 @@ test("streaming requires an explicit successful authorization decision", async (
   let output = "";
   for await (const chunk of stream) output += chunk;
   assert.equal(output, "report");
+});
+
+test("verified reads fail closed on content or commitment tampering", async () => {
+  const client = new MemoryS3();
+  const store = new S3ArtifactStore({ client, bucket: "qarau-private" });
+  const artifactHash = "c".repeat(64);
+  await store.putOnce({ key: "packages/id/result.json", bytes: Buffer.from("trusted"), artifactHash });
+  assert.equal((await store.getVerifiedBytes({ key: "packages/id/result.json", expectedArtifactHash: artifactHash })).toString(), "trusted");
+  await assert.rejects(() => store.getVerifiedBytes({ key: "packages/id/result.json", expectedArtifactHash: "d".repeat(64) }), /artifact_commitment_mismatch/);
+  client.objects.get("packages/id/result.json").bytes = Buffer.from("tampered");
+  await assert.rejects(() => store.getVerifiedBytes({ key: "packages/id/result.json", expectedArtifactHash: artifactHash }), /artifact_content_hash_mismatch/);
 });
