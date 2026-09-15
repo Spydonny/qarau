@@ -64,4 +64,16 @@ export async function settleAccessRoundOnChain({ signer, rpcUrl, programId, roun
   return Object.freeze({ roundPda, finalizedSlot: transaction.slot, transaction, alreadySettled: false });
 }
 
+/** Emergency stop: the registry authority is the publisher signer set at initialize. */
+export async function setRegistryPausedOnChain({ signer, rpcUrl, programId, paused }) {
+  if (!signer || !rpcUrl || !programId || process.env.DISABLE_SOLANA_SIGNING === "true") throw new Error("publisher_signing_disabled");
+  if (!/devnet|localhost|127\.0\.0\.1/i.test(rpcUrl)) throw new Error("unsupported_solana_network");
+  if (typeof paused !== "boolean") throw new Error("invalid_paused_flag");
+  const rpc = createSolanaRpc(rpcUrl); const registryPda = await deriveRegistryPda(programId);
+  const registry = await rpc.getAccountInfo(registryPda, { commitment: "finalized", encoding: "base64" }).send();
+  if (!registry.value) throw new Error("registry_not_found");
+  const transaction = await send(rpc, signer, [instruction(programId, "set_paused", [{ address: registryPda, role: AccountRole.WRITABLE }, { address: signer.address, role: AccountRole.READONLY_SIGNER }], Buffer.from([paused ? 1 : 0]))]);
+  return Object.freeze({ registryPda, paused, transaction, finalizedSlot: transaction.slot });
+}
+
 export const publisherInternals = Object.freeze({ createCommitmentData, createAccessRoundData, discriminator });

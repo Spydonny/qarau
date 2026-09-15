@@ -64,6 +64,8 @@ test("API contract separates public, wallet, owner, and finalized-entitlement bo
   const endpoints = new Map(contract.endpoints.map((endpoint) => [key(endpoint), endpoint]));
   assert.equal(endpoints.get("GET /opportunities").security, "public");
   assert.equal(endpoints.get("POST /discovery/jobs").security, "owner");
+  assert.equal(endpoints.get("POST /registry/pause").security, "owner");
+  assert.deepEqual(contract.schemas.RegistryPauseRequest.forbidden, ["authority", "program_id", "registry_pda", "signature"]);
   assert.equal(endpoints.get("POST /access-rounds/{roundPda}/bid-transaction").security, "wallet");
   for (const role of ["view", "metadata", "report", "data", "export"]) {
     assert.equal(endpoints.get(`GET /dataset/{packageId}/${role}`).security, "wallet_finalized_entitlement");

@@ -306,6 +306,15 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
     const job = await queue.enqueue({ type: "chain.settle", payload, idempotencyKey: jobIdempotencyKey("chain.settle", 1, payload), resourceType: "access_round", resourceId: round.id });
     res.status(202).json({ job: job.job, created: job.created });
   }));
+  owner.post("/registry/pause", route(async (req, res) => {
+    // The API holds no signer credentials by design, so the kill-switch is
+    // queued for worker-chain rather than reached directly.
+    const paused = req.body?.paused;
+    if (typeof paused !== "boolean") throw new Error("invalid_paused_flag");
+    const payload = { paused, requestedBy: OWNER_ACTOR_ID };
+    const job = await queue.enqueue({ type: "chain.pause", payload, idempotencyKey: jobIdempotencyKey("chain.pause", 1, payload) + ":" + randomUUID(), resourceType: "registry" });
+    res.status(202).json({ job: job.job, created: job.created });
+  }));
   owner.get("/cockpit/funnel", route(async (_req, res) => {
     const rows = await pool.query(`SELECT source.id, COALESCE(source.title, source.domain) AS name, source.source_type,
       COALESCE(source.reliability->>'category', 'external') AS category,
@@ -334,7 +343,7 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
 
   // Contract paths are mounted at /api/v1; /owner is retained as a readable
   // console alias. Public routes never enter the owner middleware.
-  const isOwnerPath = (path) => /^\/(?:sources(?:\/|$)|discovery\/jobs$|dataset-versions\/[^/]+\/analysis-runs$|analysis-runs(?:\/|$)|packages\/[^/]+\/publish$|access-rounds\/[^/]+\/settle$|cockpit\/funnel$|jobs\/[^/]+$)/.test(path);
+  const isOwnerPath = (path) => /^\/(?:sources(?:\/|$)|discovery\/jobs$|dataset-versions\/[^/]+\/analysis-runs$|analysis-runs(?:\/|$)|packages\/[^/]+\/publish$|access-rounds\/[^/]+\/settle$|cockpit\/funnel$|registry\/pause$|jobs\/[^/]+$)/.test(path);
   router.use((req, res, next) => isOwnerPath(req.path) ? owner.handle(req, res, next) : next());
   router.use("/owner", owner);
   router.get("/opportunities", route(async (_req, res) => {
