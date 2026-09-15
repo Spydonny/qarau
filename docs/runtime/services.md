@@ -20,7 +20,7 @@ The automated Data.gov discovery worker uses the official v4 catalog API. `DEMO_
 
 ## Emergency stop (registry kill-switch)
 
-`registry.paused` gates `create_dataset_commitment`, `create_sale`, `create_access_round`, `purchase`, `place_bid`, `claim_entitlement` and `refund_losing_bid`. Pausing therefore stops new commitments, new rounds, and all bidder activity. `settle_access_round` is deliberately not gated, so a round that has already closed can still be settled while the registry is paused; already-claimed entitlements stay readable.
+`registry.paused` gates `create_dataset_commitment`, `create_sale`, `create_access_round`, `purchase`, `place_bid`, `claim_entitlement` and `refund_losing_bid`. Pausing therefore stops new commitments, new rounds, and all bidder activity. `settle_access_round` carries no pause constraint because it is already authority-only (`has_one = authority`): pausing exists to stop permissionless callers, and the operator is the only caller here. Gating it would also strand funds — `refund_losing_bid` requires `AUCTION_STATUS_SETTLED`, so a round that cannot be settled is a round whose losing bidders cannot be refunded.
 
 The owner pulls it through the product, not through the upgrade authority:
 
@@ -33,3 +33,11 @@ The API holds no signer credentials, so the request is queued as a `chain.pause`
 Every attempt writes an `audit_events` row (`registry.pause` / `registry.unpause`) with outcome `applied` or `failed`, including a refused switch. `audit_events` is insert-only for every runtime role.
 
 If the queue or the chain worker is itself unavailable, the switch is unreachable by this path and recovery requires the upgrade authority out of band — which must never be mounted into an application container.
+
+## Chain reconciliation
+
+`place_bid` is permissionless, so a bidder can transact with the program without passing through the API and `access_rounds` drifts from chain. The scheduler enqueues a `chain.reconcile` job for every finalized round still in `upcoming`, `live` or `ended` whose `last_reconciled_at` is older than two minutes; the chain worker re-reads the account and refreshes bid, winner and clearing-price columns.
+
+Reconciliation only ever advances a round's lifecycle. A chain read that lands after a claim cannot rewind `access_granted` to `settled`, and `expired` is never overwritten.
+
+`DatasetCommitment` accounts are immutable once created — `status` is set at creation and no instruction mutates it — so commitments are not reconciled.

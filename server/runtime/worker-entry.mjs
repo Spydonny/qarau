@@ -7,8 +7,10 @@ import { createAnalysisRunHandler } from "../jobs/handlers/analysis-run.mjs";
 import { createChainPublishHandler } from "../jobs/handlers/chain-publish.mjs";
 import { createChainSettleHandler } from "../jobs/handlers/chain-settle.mjs";
 import { createChainPauseHandler } from "../jobs/handlers/chain-pause.mjs";
+import { createChainReconcileHandler } from "../jobs/handlers/chain-reconcile.mjs";
 import { createRepositories } from "../db/repositories/index.mjs";
 import { enqueueDueSources } from "../scheduler/enqueue-due-sources.mjs";
+import { enqueueStaleRounds } from "../scheduler/enqueue-stale-rounds.mjs";
 import { createQueueWorker } from "../jobs/worker.mjs";
 import { S3ArtifactStore } from "../storage/artifact-store.mjs";
 import { loadServiceConfig, publicRuntimeSummary } from "./config.mjs";
@@ -35,7 +37,7 @@ if (["worker-scrape", "worker-discovery", "worker-analysis", "worker-chain"].inc
           return { "chain.publish": async (job) => {
             try { return await publish(job); }
             catch (error) { await pool.query("UPDATE dataset_packages SET status = 'publication_failed' WHERE id = $1 AND status = 'commit_pending'", [job.payload.packageId]); throw error; }
-          }, "chain.settle": settle, "chain.pause": createChainPauseHandler({ pool, publisherSignerUrl: config.values.PUBLISHER_SIGNER_URL, publisherSignerToken: config.values.PUBLISHER_SIGNER_TOKEN }) };
+          }, "chain.settle": settle, "chain.pause": createChainPauseHandler({ pool, publisherSignerUrl: config.values.PUBLISHER_SIGNER_URL, publisherSignerToken: config.values.PUBLISHER_SIGNER_TOKEN }), "chain.reconcile": createChainReconcileHandler({ pool, rpcUrl: config.values.SOLANA_RPC_URL }) };
         })();
   worker = createQueueWorker({
     queue,
@@ -49,7 +51,15 @@ if (["worker-scrape", "worker-discovery", "worker-analysis", "worker-chain"].inc
 if (role === "scheduler" && process.env.QARAU_WORKER_EXECUTE === "true") {
   pool = createPool(config.values.DATABASE_URL);
   const queue = new PostgresJobQueue(pool);
-  const run = async () => enqueueDueSources({ sources: createRepositories(pool).sources, queue }).catch((error) => console.error(JSON.stringify({ event: "scheduler_error", error: String(error.message) })));
+  const sources = createRepositories(pool).sources;
+  // Each loop reports independently: a failing discovery schedule must not
+  // mask a failing reconcile, and neither may stop the other from running.
+  const loops = Object.freeze({ "due-sources": () => enqueueDueSources({ sources, queue }), "stale-rounds": () => enqueueStaleRounds({ pool, queue }) });
+  const run = async () => {
+    for (const [name, loop] of Object.entries(loops)) {
+      await loop().catch((error) => console.error(JSON.stringify({ event: "scheduler_error", loop: name, error: String(error.message) })));
+    }
+  };
   await run();
   const timer = setInterval(run, 60_000);
   stopScheduler = () => clearInterval(timer);
