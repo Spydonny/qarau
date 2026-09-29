@@ -14,10 +14,6 @@ import type {
   QarauOptions,
   QarauJob,
 } from "./types";
-import { activateDemo, demoV1, isDemoActive } from "./demo";
-
-export { isDemoActive, demoTransactionSignature, demoSettlesAt, demoWalletAddress } from "./demo";
-
 /** Thrown for any non-2xx response so callers can branch on status. */
 export class ApiError extends Error {
   status: number;
@@ -96,31 +92,6 @@ async function publicRequest<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(res.status, message);
   }
   return res.json() as Promise<T>;
-}
-
-/**
- * `/api/v1` is only mounted when QARAU_RUNTIME_MODE=integrated, so in a plain
- * `npm run dev` every public and wallet route answers 404. Rather than leave
- * the public pages dead, the first such failure latches demo mode on and the
- * in-browser fixtures answer instead. A 401 is a real authorization result and
- * must not be mistaken for an absent runtime.
- */
-function runtimeAbsent(error: unknown) {
-  if (error instanceof ApiError) return [404, 405, 501, 502, 503, 504].includes(error.status);
-  return error instanceof TypeError;
-}
-
-function demoRouted<A extends unknown[], T>(live: (...args: A) => Promise<T>, mock: (...args: A) => Promise<T>) {
-  return async (...args: A): Promise<T> => {
-    if (isDemoActive()) return mock(...args);
-    try {
-      return await live(...args);
-    } catch (error) {
-      if (!runtimeAbsent(error)) throw error;
-      activateDemo();
-      return mock(...args);
-    }
-  };
 }
 
 async function waitForJob(job: QarauJob, timeoutMs = 70_000) {
@@ -224,22 +195,24 @@ export const v1 = {
   publishPackage: (packageId: string, terms: { opens_at?: string; closes_at?: string; minimum_bid_lamports?: number; max_winners?: number } = {}) => request<{ job: V1Job }>(`/api/v1/packages/${packageId}/publish`, { method: "POST", body: JSON.stringify(terms) }),
   settleAccessRound: (accessRoundId: string) => request<{ job: V1Job }>(`/api/v1/access-rounds/${accessRoundId}/settle`, { method: "POST", body: "{}" }),
   funnel: () => request<RunLanes>("/api/v1/cockpit/funnel"),
-  opportunities: demoRouted(() => publicRequest<{ packages: Array<Record<string, unknown>> }>("/api/v1/opportunities"), demoV1.opportunities),
-  opportunity: demoRouted((packageId: string) => publicRequest<{ package: Record<string, unknown> }>(`/api/v1/opportunities/${packageId}`), demoV1.opportunity),
-  proof: demoRouted((packageId: string) => publicRequest<Record<string, unknown>>(`/api/v1/packages/${packageId}/proof`), demoV1.proof),
-  siwsChallenge: demoRouted((address: string) => publicRequest<{ nonce: string; message: string }>("/api/v1/auth/siws/challenge", { method: "POST", body: JSON.stringify({ address }) }), demoV1.siwsChallenge),
-  siwsVerify: demoRouted((input: { address: string; nonce: string; signature: string }) => publicRequest<{ wallet: string; expires_at: string }>("/api/v1/auth/siws/verify", { method: "POST", body: JSON.stringify(input) }), demoV1.siwsVerify),
-  walletSession: demoRouted(() => publicRequest<{ wallet: string; idle_expires_at: string; absolute_expires_at: string }>("/api/v1/auth/session"), demoV1.walletSession),
-  bidTransaction: demoRouted((roundPda: string, tier: "exclusive_early" | "delayed", amountLamports: number) => publicRequest<{ transaction_base64: string; bidPda: string }>(`/api/v1/access-rounds/${roundPda}/bid-transaction`, { method: "POST", body: JSON.stringify({ tier, amount_lamports: amountLamports }) }), demoV1.bidTransaction),
-  confirmBid: demoRouted((roundPda: string, transactionSignature: string) => publicRequest<{ package_id: string; bid_pda: string; status: string }>("/api/v1/bids/confirm", { method: "POST", body: JSON.stringify({ round_pda: roundPda, transaction_signature: transactionSignature }) }), demoV1.confirmBid),
-  claimTransaction: demoRouted((roundPda: string) => publicRequest<{ transaction_base64: string; entitlementPda: string }>(`/api/v1/access-rounds/${roundPda}/claim-transaction`, { method: "POST", body: "{}" }), demoV1.claimTransaction),
-  confirmEntitlement: demoRouted((roundPda: string, transactionSignature: string) => publicRequest<{ package_id: string; entitlement_pda: string; status: string }>("/api/v1/entitlements/confirm", { method: "POST", body: JSON.stringify({ round_pda: roundPda, transaction_signature: transactionSignature }) }), demoV1.confirmEntitlement),
-  refundTransaction: demoRouted((roundPda: string) => publicRequest<{ transaction_base64: string }>(`/api/v1/access-rounds/${roundPda}/refund-transaction`, { method: "POST", body: "{}" }), demoV1.refundTransaction),
-  accessEntitlements: demoRouted(() => publicRequest<{ entitlements: Array<Record<string, unknown>> }>("/api/v1/wallet/access-entitlements"), demoV1.accessEntitlements),
-  datasetView: demoRouted(async (packageId: string) => {
+  opportunities: () => publicRequest<{ packages: Array<Record<string, unknown>> }>("/api/v1/opportunities"),
+  opportunity: (packageId: string) => publicRequest<{ package: Record<string, unknown> }>(`/api/v1/opportunities/${packageId}`),
+  proof: (packageId: string) => publicRequest<Record<string, unknown>>(`/api/v1/packages/${packageId}/proof`),
+  siwsChallenge: (address: string) => publicRequest<{ nonce: string; message: string }>("/api/v1/auth/siws/challenge", { method: "POST", body: JSON.stringify({ address }) }),
+  siwsVerify: (input: { address: string; nonce: string; signature: string }) => publicRequest<{ wallet: string; expires_at: string }>("/api/v1/auth/siws/verify", { method: "POST", body: JSON.stringify(input) }),
+  walletSession: () => publicRequest<{ wallet: string; idle_expires_at: string; absolute_expires_at: string }>("/api/v1/auth/session"),
+  siwsLogout: () => publicRequest<{ ok: boolean }>("/api/v1/auth/logout", { method: "POST", body: "{}" }),
+  confirmRefund: (roundPda: string, transactionSignature: string) => publicRequest<{ package_id: string; round_pda: string; status: string }>("/api/v1/bids/refund-confirm", { method: "POST", body: JSON.stringify({ round_pda: roundPda, transaction_signature: transactionSignature }) }),
+  bidTransaction: (roundPda: string, tier: "exclusive_early" | "delayed", amountLamports: number) => publicRequest<{ transaction_base64: string; bidPda: string }>(`/api/v1/access-rounds/${roundPda}/bid-transaction`, { method: "POST", body: JSON.stringify({ tier, amount_lamports: amountLamports }) }),
+  confirmBid: (roundPda: string, transactionSignature: string) => publicRequest<{ package_id: string; bid_pda: string; status: string }>("/api/v1/bids/confirm", { method: "POST", body: JSON.stringify({ round_pda: roundPda, transaction_signature: transactionSignature }) }),
+  claimTransaction: (roundPda: string) => publicRequest<{ transaction_base64: string; entitlementPda: string }>(`/api/v1/access-rounds/${roundPda}/claim-transaction`, { method: "POST", body: "{}" }),
+  confirmEntitlement: (roundPda: string, transactionSignature: string) => publicRequest<{ package_id: string; entitlement_pda: string; status: string }>("/api/v1/entitlements/confirm", { method: "POST", body: JSON.stringify({ round_pda: roundPda, transaction_signature: transactionSignature }) }),
+  refundTransaction: (roundPda: string) => publicRequest<{ transaction_base64: string }>(`/api/v1/access-rounds/${roundPda}/refund-transaction`, { method: "POST", body: "{}" }),
+  accessEntitlements: () => publicRequest<{ entitlements: Array<Record<string, unknown>> }>("/api/v1/wallet/access-entitlements"),
+  datasetView: async (packageId: string) => {
     const view = await publicRequest<Record<string, unknown>>(`/api/v1/dataset/${packageId}/view`);
     if (typeof view.download_url === "string" && view.download_url.startsWith("/")) view.download_url = `${API_BASE}${view.download_url}`;
     return view;
-  }, demoV1.dataset),
-  auctionPositions: demoRouted(() => publicRequest<{ positions: Array<Record<string, unknown>> }>("/api/v1/wallet/auction-positions"), demoV1.auctionPositions),
+  },
+  auctionPositions: () => publicRequest<{ positions: Array<Record<string, unknown>> }>("/api/v1/wallet/auction-positions"),
 };

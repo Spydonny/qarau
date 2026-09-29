@@ -42,8 +42,14 @@ export function validateAnalysis(value) {
 }
 
 export function aiSafeRepresentation(source) {
+  const category = String(source.category ?? source.knownMetadata?.category ?? "unknown").slice(0, 64);
+  const sourceType = String(source.sourceType ?? source.knownMetadata?.sourceType ?? "unknown").slice(0, 64);
+  const region = String(source.region ?? source.knownMetadata?.broadRegion ?? "unspecified").slice(0, 64);
+  const resolution = String(source.temporalResolution ?? source.knownMetadata?.temporalResolution ?? "unknown").slice(0, 64);
   return {
-    sourceText: String(source.private?.summary || source.measurementDescription || "").slice(0, 6_000),
+    // Never forward free-text summaries, descriptions, URLs or identifiers.
+    // Only generalized categorical context leaves the boundary.
+    sourceText: ["category:" + category, "source-type:" + sourceType, "region:" + region, "resolution:" + resolution].join(" | ").slice(0, 500),
     knownMetadata: {
       category: source.category,
       broadRegion: source.region,

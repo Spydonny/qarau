@@ -44,8 +44,6 @@ export function DeliveredResearch({ item }: { item: Delivered }) {
     ? item.rows.map((row) => String(row.observed_at).slice(5))
     : [0, 1, 2, 3].map((tick) => String(item.rows[Math.round((tick / 3) * last)].observed_at).slice(5));
 
-  // Live users download the exact authorized object; fixtures build the same
-  // JSONL locally so the demo remains self-contained.
   const localDownload = useMemo(() => URL.createObjectURL(new Blob([jsonl(item)], { type: "application/x-ndjson" })), [item]);
   const download = item.download_url ?? localDownload;
 

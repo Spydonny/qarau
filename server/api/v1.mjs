@@ -46,8 +46,26 @@ function pageQuery(query) {
     offset: Number.isFinite(requestedOffset) ? Math.max(0, requestedOffset) : 0,
   };
 }
+function sanitizePublicText(value, max) {
+  let text = String(value ?? "").slice(0, max);
+  text = text.replace(/https?:\/\/[^\s]+/gi, "").replace(/www\.[^\s]+/gi, "").trim().replace(/\s+/g, " ");
+  return text;
+}
+function sanitizeValidationSummary(value) {
+  if (!value || typeof value !== "object") return {};
+  const band = value.evidence_band ?? value.evidenceBand;
+  return band ? { evidence_band: String(band).slice(0, 32) } : {};
+}
 function publicPackage(row) {
-  const metadata = Object.fromEntries(Object.entries(row.public_metadata ?? {}).filter(([key]) => NON_SENSITIVE_PUBLIC_FIELDS.has(key)));
+  const rawMeta = row.public_metadata ?? {};
+  const metadata = {};
+  for (const [key, value] of Object.entries(rawMeta)) {
+    if (!NON_SENSITIVE_PUBLIC_FIELDS.has(key)) continue;
+    if (key === "title") metadata.title = sanitizePublicText(value, 160) || "Validated QARAU dataset";
+    else if (key === "description") metadata.description = sanitizePublicText(value, 500) || "Quantitatively validated external dataset.";
+    else if (key === "validation_summary") metadata.validation_summary = sanitizeValidationSummary(value);
+    else metadata[key] = value;
+  }
   return {
     package_id: row.id,
     ...metadata,
@@ -114,7 +132,7 @@ async function packageContext(pool, packageId) {
             source.redistribution_rights, source.derivative_rights,
             (SELECT candidate.artifact_object_key FROM signal_candidates AS candidate
              WHERE candidate.analysis_run_id = analysis.id
-             ORDER BY candidate.id LIMIT 1) AS derived_signal_object_key
+             ORDER BY CASE WHEN candidate.id = analysis.best_signal_candidate_id THEN 0 ELSE 1 END, candidate.id LIMIT 1) AS derived_signal_object_key
      FROM dataset_packages AS package
      JOIN dataset_versions AS version ON version.id = package.dataset_version_id
      JOIN datasets AS dataset ON dataset.id = version.dataset_id
@@ -139,7 +157,7 @@ export async function chooseProtectedVersion(pool, context, grant) {
     `SELECT run.id AS analysis_run_id, run.report_object_key, run.result_hash,
             (SELECT candidate.artifact_object_key FROM signal_candidates AS candidate
              WHERE candidate.analysis_run_id = run.id
-             ORDER BY candidate.id LIMIT 1) AS derived_signal_object_key
+             ORDER BY CASE WHEN candidate.id = run.best_signal_candidate_id THEN 0 ELSE 1 END, candidate.id LIMIT 1) AS derived_signal_object_key
      FROM analysis_runs AS run
      WHERE run.dataset_version_id = $1
        AND run.status = 'completed'
@@ -262,7 +280,9 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
     const rights = source.rows[0];
     if (rights?.license_status !== "approved" || (!rights.redistribution_rights && !rights.derivative_rights)) throw new Error("package_license_not_approved");
     const evidenceBand = Number(analysis.alpha_score) >= 75 ? "strong" : Number(analysis.alpha_score) >= 50 ? "moderate" : Number(analysis.alpha_score) >= 25 ? "weak" : "rejected";
-    const publicMetadata = { title: String(req.body?.title ?? rights?.title ?? "Validated QARAU dataset").slice(0, 160), description: String(req.body?.description ?? rights?.description ?? "Quantitatively validated external dataset.").slice(0, 500), coverage: { start: version.coverage_start, end: version.coverage_end }, update_frequency: version.frequency, evidence_band: evidenceBand, access_form: rights.redistribution_rights ? "normalized_and_derived" : "derived_only", validation_summary: { analysis_run_id: analysis.id } };
+    const requestedTitle = typeof req.body?.title === "string" && req.body.title.trim() ? req.body.title.trim() : "";
+    const requestedDescription = typeof req.body?.description === "string" && req.body.description.trim() ? req.body.description.trim() : "";
+    const publicMetadata = { title: sanitizePublicText(requestedTitle || "Validated QARAU dataset", 160) || "Validated QARAU dataset", description: sanitizePublicText(requestedDescription || "Quantitatively validated external dataset.", 500) || "Quantitatively validated external dataset.", coverage: { start: version.coverage_start, end: version.coverage_end }, update_frequency: version.frequency, evidence_band: evidenceBand, access_form: rights.redistribution_rights ? "normalized_and_derived" : "derived_only", validation_summary: { evidence_band: evidenceBand } };
     const packageId = randomUUID(); const policyBytes = canonicalJsonBytes(policy); const policyHash = hashBytes(HASH_DOMAINS.accessPolicy, policyBytes);
     const privateBytes = Buffer.from(JSON.stringify({ package_id: packageId, dataset_version_id: version.id, analysis_run_id: analysis.id, created_at: nowIso() }), "utf8");
     const privateKey = `packages/${packageId}/private-metadata.json`; const policyKey = `packages/${packageId}/access-policy.json`;
@@ -288,7 +308,7 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
     const maxWinners = Number(req.body?.max_winners ?? previousPayload?.maxWinners ?? Math.min(packageRow.max_seats, 10));
     if (!Number.isSafeInteger(minimumBidLamports) || minimumBidLamports < 1 || !Number.isInteger(maxWinners) || maxWinners < 1 || maxWinners > Math.min(packageRow.max_seats, 10)) throw new Error("invalid_auction_terms");
     const payload = { packageId: packageRow.id, opensAt: opensAt.toISOString(), closesAt: closesAt.toISOString(), minimumBidLamports, maxWinners };
-    const job = await queue.enqueue({ type: "chain.publish", payload, idempotencyKey: `${jobIdempotencyKey("chain.publish", 2, payload)}:${randomUUID()}`, resourceType: "dataset_package", resourceId: packageRow.id });
+    const job = await queue.enqueue({ type: "chain.publish", payloadVersion: 2, payload, idempotencyKey: `${jobIdempotencyKey("chain.publish", 2, payload)}:${randomUUID()}`, resourceType: "dataset_package", resourceId: packageRow.id });
     await pool.query("UPDATE dataset_packages SET status = 'commit_pending' WHERE id = $1 AND status IN ('sealed', 'publication_failed')", [packageRow.id]);
     res.status(202).json({ job: job.job, created: job.created });
   }));
@@ -304,6 +324,15 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
     if (effectiveState !== "ended") throw new Error("access_round_not_settleable");
     const payload = { accessRoundId: round.id };
     const job = await queue.enqueue({ type: "chain.settle", payload, idempotencyKey: jobIdempotencyKey("chain.settle", 1, payload), resourceType: "access_round", resourceId: round.id });
+    res.status(202).json({ job: job.job, created: job.created });
+  }));
+  owner.post("/registry/pause", route(async (req, res) => {
+    // The API holds no signer credentials by design, so the kill-switch is
+    // queued for worker-chain rather than reached directly.
+    const paused = req.body?.paused;
+    if (typeof paused !== "boolean") throw new Error("invalid_paused_flag");
+    const payload = { paused, requestedBy: OWNER_ACTOR_ID };
+    const job = await queue.enqueue({ type: "chain.pause", payload, idempotencyKey: jobIdempotencyKey("chain.pause", 1, payload) + ":" + randomUUID(), resourceType: "registry" });
     res.status(202).json({ job: job.job, created: job.created });
   }));
   owner.get("/cockpit/funnel", route(async (_req, res) => {
@@ -334,7 +363,7 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
 
   // Contract paths are mounted at /api/v1; /owner is retained as a readable
   // console alias. Public routes never enter the owner middleware.
-  const isOwnerPath = (path) => /^\/(?:sources(?:\/|$)|discovery\/jobs$|dataset-versions\/[^/]+\/analysis-runs$|analysis-runs(?:\/|$)|packages\/[^/]+\/publish$|access-rounds\/[^/]+\/settle$|cockpit\/funnel$|jobs\/[^/]+$)/.test(path);
+  const isOwnerPath = (path) => /^\/(?:sources(?:\/|$)|discovery\/jobs$|dataset-versions\/[^/]+\/analysis-runs$|analysis-runs(?:\/|$)|packages\/[^/]+\/publish$|access-rounds\/[^/]+\/settle$|cockpit\/funnel$|registry\/pause$|jobs\/[^/]+$)/.test(path);
   router.use((req, res, next) => isOwnerPath(req.path) ? owner.handle(req, res, next) : next());
   router.use("/owner", owner);
   router.get("/opportunities", route(async (_req, res) => {
@@ -411,6 +440,19 @@ export function createV1Router({ pool, artifactStore, solana, ownerMiddleware, c
     await pool.query("UPDATE auction_bids SET status = 'claimed', last_reconciled_at = now() WHERE access_round_id = $1 AND wallet_id = $2", [local.id, req.wallet.wallet_id]);
     await pool.query("UPDATE access_rounds SET state = 'access_granted', last_reconciled_at = now() WHERE id = $1", [local.id]);
     res.json({ package_id: local.package_id, round_pda: roundPda, entitlement_pda: entitlement.entitlementPda, tier, status: "finalized" });
+  }));
+  wallet.post("/bids/refund-confirm", route(async (req, res) => {
+    const signature = String(req.body?.transaction_signature ?? "");
+    const roundPda = String(req.body?.round_pda ?? "");
+    const finalized = await readFinalizedSignature({ rpcUrl: solana.rpcUrl, signature }); if (!finalized) throw new Error("transaction_not_finalized");
+    const local = (await pool.query("SELECT round.*, package.id AS package_id FROM access_rounds AS round JOIN dataset_packages AS package ON package.id = round.package_id WHERE round.round_pda = $1 AND round.network = 'devnet' AND round.confirmation_status = 'finalized' AND round.chain_state_source = 'rpc_verified'", [roundPda])).rows[0];
+    if (!local) throw new Error("access_round_not_found");
+    if (!await transactionTouchesAccounts({ rpcUrl: solana.rpcUrl, signature, required: [local.program_id, roundPda, req.wallet.address] })) throw new Error("bid_not_found");
+    // After a successful refund the Bid PDA is closed on-chain.
+    const stillOpen = await readBid({ rpcUrl: solana.rpcUrl, programId: local.program_id, roundPda, bidder: req.wallet.address });
+    if (stillOpen) throw new Error("bid_not_refunded");
+    await pool.query("UPDATE auction_bids SET status = 'refunded', transaction_signature = COALESCE($3, transaction_signature), last_reconciled_at = now() WHERE access_round_id = $1 AND wallet_id = $2", [local.id, req.wallet.wallet_id, signature]);
+    res.json({ package_id: local.package_id, round_pda: roundPda, status: "refunded" });
   }));
   wallet.post("/access-rounds/:roundPda/refund-transaction", route(async (req, res) => {
     const local = (await pool.query("SELECT * FROM access_rounds WHERE round_pda = $1 AND network = 'devnet' AND confirmation_status = 'finalized' AND chain_state_source = 'rpc_verified' AND state IN ('settled', 'access_granted')", [req.params.roundPda])).rows[0];

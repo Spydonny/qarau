@@ -20,6 +20,7 @@
     { "method": "POST", "path": "/analysis-runs/{id}/packages", "security": "owner", "request": "PackageRequest", "response": "DatasetPackage" },
     { "method": "POST", "path": "/packages/{id}/publish", "security": "owner", "response": "JobAccepted" },
     { "method": "POST", "path": "/access-rounds/{id}/settle", "security": "owner", "response": "JobAccepted" },
+    { "method": "POST", "path": "/registry/pause", "security": "owner", "request": "RegistryPauseRequest", "response": "JobAccepted" },
     { "method": "GET", "path": "/cockpit/funnel", "security": "owner", "response": "ProductionFunnel" },
     { "method": "GET", "path": "/jobs/{id}", "security": "owner", "response": "Job" },
     { "method": "GET", "path": "/opportunities", "security": "public", "response": "PublicOpportunityList" },
@@ -53,6 +54,12 @@
     },
     "SiwsChallenge": {
       "required": ["message", "nonce", "domain", "uri", "chain_id", "issued_at", "expiration_time"],
+      "additional_properties": false
+    },
+    "RegistryPauseRequest": {
+      "required": ["paused"],
+      "forbidden": ["authority", "program_id", "registry_pda", "signature"],
+      "notes": "Owner-only kill-switch. The API never signs; the request is queued for worker-chain, which calls the isolated publisher signer.",
       "additional_properties": false
     },
     "BidTransactionRequest": {

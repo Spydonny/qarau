@@ -11,7 +11,8 @@ export const JOB_PAYLOADS = Object.freeze({
   "analysis.run": Object.freeze({ role: "worker-analysis", version: 1, schema: z.object({ analysisRunId: uuid }).strict() }),
   "chain.publish": Object.freeze({ role: "worker-chain", version: 2, schema: z.object({ packageId: uuid, opensAt: z.string().datetime(), closesAt: z.string().datetime(), minimumBidLamports: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER), maxWinners: z.number().int().min(1).max(10) }).strict() }),
   "chain.settle": Object.freeze({ role: "worker-chain", version: 1, schema: z.object({ accessRoundId: uuid }).strict() }),
-  "chain.reconcile": Object.freeze({ role: "worker-chain", version: 1, schema: z.object({ network: z.enum(["localnet", "devnet"]), account: nonempty }).strict() }),
+  "chain.pause": Object.freeze({ role: "worker-chain", version: 1, schema: z.object({ paused: z.boolean(), requestedBy: nonempty }).strict() }),
+  "chain.reconcile": Object.freeze({ role: "worker-chain", version: 2, schema: z.object({ network: z.enum(["localnet", "devnet"]), account: nonempty, observedFor: z.string().datetime() }).strict() }),
   "schedule.due-sources": Object.freeze({ role: "scheduler", version: 1, schema: z.object({ asOf: z.string().datetime() }).strict() }),
 });
 
