@@ -199,6 +199,7 @@ services:
       QARAU_WORKER_EXECUTE: "true"
       SERVICE_HEALTH_PORT: 8794
     depends_on: { postgres: { condition: service_healthy }, object-storage-init: { condition: service_completed_successfully }, publisher-signer: { condition: service_started } }
+    networks: [private, egress]
 
   scheduler:
     <<: *app
