@@ -43,7 +43,7 @@
     "@wallet-standard/react": "1.0.3",
     "concurrently": "^10.0.5",
     "express": "^5.2.1",
-    "pg": "8.23.0",
+    "mongodb": "^6.17.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2",

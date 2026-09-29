@@ -33,9 +33,9 @@ test("Devnet publication can resume after a failed attempt", async () => {
   const api = await readFile(rootFile("server/api/v1.mjs"), "utf8");
   const chain = await readFile(rootFile("server/jobs/handlers/chain-publish.mjs"), "utf8");
   assert.match(api, /publication_failed/);
-  assert.match(api, /status IN \('queued', 'running', 'retry_wait'\)/);
+  assert.match(api, /status: \{ \$in: \["queued", "running", "retry_wait"\] \}/);
   assert.match(chain, /\["sealed", "commit_pending", "publication_failed", "committed"\]/);
-  assert.match(chain, /status IN \('sealed', 'commit_pending', 'publication_failed'\)/);
+  assert.match(api, /status: \{ \$in: \["sealed", "publication_failed"\] \}/);
 });
 
 test("signer address command reads the configured persistent publisher key", async () => {
@@ -84,6 +84,8 @@ test("owner session checks are scoped to the admin namespace", async () => {
 test("integration-test database guard rejects production-shaped names", async () => {
   const { testDatabaseUrl } = await import("./database-url.mjs");
   assert.equal(testDatabaseUrl({}), undefined);
-  assert.equal(testDatabaseUrl({ TEST_DATABASE_URL: "postgresql://owner:secret@localhost:5432/qarau_test" }), "postgresql://owner:secret@localhost:5432/qarau_test");
-  assert.throws(() => testDatabaseUrl({ TEST_DATABASE_URL: "postgresql://owner:secret@localhost:5432/qarau" }), /Refusing to run/);
+  assert.equal(testDatabaseUrl({ TEST_MONGODB_URI: "mongodb://localhost:27017/qarau_test" }), "mongodb://localhost:27017/qarau_test");
+  assert.equal(testDatabaseUrl({ TEST_MONGODB_URI: "mongodb+srv://cluster.example.net/qarau_test" }), "mongodb+srv://cluster.example.net/qarau_test");
+  assert.throws(() => testDatabaseUrl({ TEST_MONGODB_URI: "mongodb://localhost:27017/qarau" }), /Refusing to run/);
+  assert.throws(() => testDatabaseUrl({ TEST_MONGODB_URI: "not-a-url" }), /TEST_MONGODB_URI must be a valid MongoDB/);
 });

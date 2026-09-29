@@ -1,19 +1,19 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import test from "node:test";
-import { createPool } from "../db/pool.mjs";
+import { createDatabase } from "../db/mongo.mjs";
 import { migrate } from "../db/migrate.mjs";
-import { PostgresJobQueue } from "../jobs/queue.mjs";
-import { testDatabaseUrl } from "./database-url.mjs";
+import { MongoJobQueue } from "../jobs/queue.mjs";
 
-const databaseUrl = testDatabaseUrl();
+const uri = process.env.TEST_MONGODB_URI;
+const dbName = `qarau_test_${Date.now().toString(36)}${process.pid.toString(36)}`;
 
-test("Postgres queue is idempotent, lease-safe, retryable, and dead-lettered", { skip: !databaseUrl }, async () => {
-  const pool = createPool(databaseUrl);
+test("Mongo queue is idempotent, lease-safe, retryable, and dead-lettered", { skip: !uri }, async () => {
+  const { db, close } = await createDatabase(uri, dbName);
   const suffix = crypto.randomUUID();
-  const queue = new PostgresJobQueue(pool, { leaseSeconds: 30 });
+  const queue = new MongoJobQueue(db, { leaseSeconds: 30 });
   try {
-    await migrate(pool, { migrationsDir: new URL("../db/migrations/", import.meta.url) });
+    await migrate(db);
 
     const scrapePayload = { sourceId: suffix, reason: "manual", scheduledFor: "2026-09-05T10:00:00.000Z" };
     const first = await queue.enqueue({ type: "scrape.source", payload: scrapePayload, idempotencyKey: `queue-first-${suffix}` });
@@ -41,6 +41,6 @@ test("Postgres queue is idempotent, lease-safe, retryable, and dead-lettered", {
     const dead = await queue.fail(secondAttempt.id, "analysis-worker", { errorCode: "exhausted", retryDelaySeconds: 0 });
     assert.equal(dead.status, "dead_letter");
   } finally {
-    await pool.end();
+    await close();
   }
 });

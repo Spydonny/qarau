@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { authBanner, initOwner, registerAuthRoutes, requireCsrf, requireOwner } from "./auth.mjs";
 import { QarauService } from "./qarau-service.mjs";
 import { loadServiceConfig, publicRuntimeSummary } from "./runtime/config.mjs";
-import { createPool } from "./db/pool.mjs";
+import { createDatabase } from "./db/mongo.mjs";
 import { S3ArtifactStore } from "./storage/artifact-store.mjs";
 import { createV1Router } from "./api/v1.mjs";
 
@@ -87,10 +87,11 @@ registerAuthRoutes(app);
 // durable production path. Its data, sessions and artifacts all come from the
 // integrated services, never the encrypted prototype store.
 if (runtimeConfig.runtimeMode === "integrated") {
-  const integratedPool = createPool(runtimeConfig.values.DATABASE_URL);
+  const database = await createDatabase(runtimeConfig.values.MONGODB_URI, runtimeConfig.values.MONGODB_DB ?? "qarau");
+  const integratedDb = database.db;
   const integratedArtifacts = S3ArtifactStore.fromEnvironment(process.env);
   app.use("/api/v1", createV1Router({
-    pool: integratedPool,
+    db: integratedDb,
     artifactStore: integratedArtifacts,
     solana: { rpcUrl: runtimeConfig.values.SOLANA_RPC_URL, programId: runtimeConfig.values.SOLANA_PROGRAM_ID },
     ownerMiddleware: requireOwner,

@@ -2,15 +2,15 @@ import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
 import test from "node:test";
-import { createPool } from "../db/pool.mjs";
+import { createDatabase } from "../db/mongo.mjs";
 import { migrate } from "../db/migrate.mjs";
 import { createRepositories } from "../db/repositories/index.mjs";
 import { createAnalysisRunHandler } from "../jobs/handlers/analysis-run.mjs";
 import { normalizeRows } from "../normalization/canonical-jsonl.mjs";
 import { encryptSourceUrl } from "../security/source-url.mjs";
-import { testDatabaseUrl } from "./database-url.mjs";
 
-const databaseUrl = testDatabaseUrl();
+const uri = process.env.TEST_MONGODB_URI;
+const dbName = `qarau_test_${Date.now().toString(36)}${process.pid.toString(36)}`;
 const sourceKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 class MemoryArtifacts {
   constructor() { this.values = new Map(); }
@@ -18,10 +18,10 @@ class MemoryArtifacts {
   async getStream(key) { const value = this.values.get(key); if (!value) throw new Error(`missing:${key}`); return Readable.from(value.bytes); }
 }
 
-test("analysis worker persists signal, screening, validation, leakage and score artifacts", { skip: !databaseUrl }, async () => {
-  const pool = createPool(databaseUrl); const artifacts = new MemoryArtifacts(); const suffix = randomUUID();
+test("analysis worker persists signal, screening, validation, leakage and score artifacts", { skip: !uri }, async () => {
+  const { db, close } = await createDatabase(uri, dbName); const artifacts = new MemoryArtifacts(); const suffix = randomUUID();
   try {
-    await migrate(pool); const repositories = createRepositories(pool);
+    await migrate(db); const repositories = createRepositories(db);
     const source = await repositories.sources.create({ canonical_url_ciphertext: encryptSourceUrl("https://example.test/data", sourceKey), canonical_url_hash: createHash("sha256").update(suffix).digest(), domain: "example.test", source_type: "json_api", status: "active" });
     const ingestion = await repositories.ingestionRuns.create({ source_id: source.id, status: "completed", attempt: 1 });
     const snapshot = await repositories.sourceSnapshots.create({ source_id: source.id, ingestion_run_id: ingestion.id, raw_object_key: `raw/${source.id}/${suffix}/body`, raw_hash: Buffer.alloc(32, 1), retrieval_timestamp: new Date() });
@@ -38,14 +38,16 @@ test("analysis worker persists signal, screening, validation, leakage and score 
     const market = await repositories.marketSnapshots.create({ target_id: target.id, raw_object_key: `raw/markets/${target.id}/${suffix}/raw`, normalized_object_key: marketKey, raw_hash: Buffer.alloc(32, 2), normalized_hash: Buffer.from(marketNormalized.hash, "hex"), retrieved_at: new Date(), coverage_start: marketNormalized.quality.coverage_start, coverage_end: marketNormalized.quality.coverage_end });
     const mapping = await repositories.targetMappings.create({ dataset_id: dataset.id, target_id: target.id, physical_variable: "flow", economic_mechanism: "fixture", affected_asset: target.symbol, status: "proposed", mapping_version: 1 });
     const run = await repositories.analysisRuns.create({ dataset_version_id: version.id, market_snapshot_id: market.id, mapping_id: mapping.id, status: "queued", pipeline_version: "quantitative-v1" });
-    const result = await createAnalysisRunHandler({ pool, artifactStore: artifacts })({ payload: { analysisRunId: run.id } });
+    const result = await createAnalysisRunHandler({ db, artifactStore: artifacts })({ payload: { analysisRunId: run.id } });
     assert.equal(result.status, "completed");
-    const redelivery = await createAnalysisRunHandler({ pool, artifactStore: artifacts })({ payload: { analysisRunId: run.id } });
+    const redelivery = await createAnalysisRunHandler({ db, artifactStore: artifacts })({ payload: { analysisRunId: run.id } });
     assert.equal(redelivery.alreadyProcessed, true);
     assert.equal(redelivery.status, "completed");
-    const persisted = await pool.query("SELECT status, alpha_score, manifest_hash, result_hash FROM analysis_runs WHERE id = $1", [run.id]);
-    assert.equal(persisted.rows[0].status, "completed"); assert.ok(Number(persisted.rows[0].alpha_score) >= 0); assert.equal(Buffer.from(persisted.rows[0].manifest_hash).length, 32);
-    const counts = await pool.query("SELECT (SELECT count(*) FROM signal_candidates WHERE analysis_run_id = $1)::integer AS signals, (SELECT count(*) FROM validation_results WHERE analysis_run_id = $1)::integer AS validations, (SELECT count(*) FROM leakage_check_results WHERE analysis_run_id = $1)::integer AS checks", [run.id]);
-    assert.ok(counts.rows[0].signals > 0 && counts.rows[0].validations > 0 && counts.rows[0].checks > 0);
-  } finally { await pool.end(); }
+    const persisted = await repositories.analysisRuns.findById(run.id);
+    assert.equal(persisted.status, "completed"); assert.ok(Number(persisted.alpha_score) >= 0); assert.ok(persisted.manifest_hash);
+    const signals = await repositories.signalCandidates.countWhere({ analysis_run_id: run.id });
+    const validations = await repositories.validationResults.countWhere({ analysis_run_id: run.id });
+    const checks = await repositories.leakageChecks.countWhere({ analysis_run_id: run.id });
+    assert.ok(signals > 0 && validations > 0 && checks > 0);
+  } finally { await close(); }
 });

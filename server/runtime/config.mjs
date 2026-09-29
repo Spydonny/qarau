@@ -16,17 +16,18 @@ const positivePort = z.coerce.number().int().min(1).max(65_535);
 const secret = z.string().min(16);
 
 const requiredByRole = Object.freeze({
-  api: ["DATABASE_URL", "S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "SOURCE_URL_ENCRYPTION_KEY", "WALLET_SESSION_SECRET", "SOLANA_RPC_URL", "SOLANA_PROGRAM_ID"],
-  "worker-discovery": ["DATABASE_URL", "SOURCE_URL_ENCRYPTION_KEY"],
-  "worker-scrape": ["DATABASE_URL", "S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "SOURCE_URL_ENCRYPTION_KEY"],
-  "worker-analysis": ["DATABASE_URL", "S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"],
-  "worker-chain": ["DATABASE_URL", "S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "SOLANA_RPC_URL", "SOLANA_PROGRAM_ID", "PUBLISHER_SIGNER_URL", "PUBLISHER_SIGNER_TOKEN"],
-  scheduler: ["DATABASE_URL"],
+  api: ["MONGODB_URI", "S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "SOURCE_URL_ENCRYPTION_KEY", "WALLET_SESSION_SECRET", "SOLANA_RPC_URL", "SOLANA_PROGRAM_ID"],
+  "worker-discovery": ["MONGODB_URI", "SOURCE_URL_ENCRYPTION_KEY"],
+  "worker-scrape": ["MONGODB_URI", "S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "SOURCE_URL_ENCRYPTION_KEY"],
+  "worker-analysis": ["MONGODB_URI", "S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"],
+  "worker-chain": ["MONGODB_URI", "S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "SOLANA_RPC_URL", "SOLANA_PROGRAM_ID", "PUBLISHER_SIGNER_URL", "PUBLISHER_SIGNER_TOKEN"],
+  scheduler: ["MONGODB_URI"],
   "publisher-signer": ["SOLANA_RPC_URL", "SOLANA_PROGRAM_ID", "PUBLISHER_SIGNER_TOKEN", "SOLANA_PUBLISHER_KEY_PATH"],
 });
 
 const validators = Object.freeze({
-  DATABASE_URL: privateUrl,
+  MONGODB_URI: z.string().regex(/^mongodb(\+srv)?:\/\/.+/, "MONGODB_URI must be a mongodb:// or mongodb+srv:// Atlas connection string"),
+  MONGODB_DB: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).optional(),
   S3_ENDPOINT: privateUrl,
   S3_REGION: nonempty,
   S3_BUCKET: z.string().regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/),
@@ -67,7 +68,7 @@ export function publicRuntimeSummary(config) {
   return Object.freeze({
     role: config.role,
     mode: config.runtimeMode,
-    persistence: config.runtimeMode === "integrated" ? "postgresql-and-private-object-store" : "encrypted-local-migration-mode",
+    persistence: config.runtimeMode === "integrated" ? "mongodb-atlas-and-private-object-store" : "encrypted-local-migration-mode",
     capabilities: config.role === "api" ? "prototype-compatible" : config.executeJobs ? "worker-execution-active" : "foundation-only",
   });
 }

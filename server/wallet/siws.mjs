@@ -47,53 +47,50 @@ function setCookie(res, token) {
   res.cookie(COOKIE, token, { httpOnly: true, sameSite: "strict", secure: secureCookies(), path: "/", maxAge: ABSOLUTE_MS });
 }
 
-/** Database-backed SIWS challenge, verification, session and logout service. */
-export function createSiwsService({ pool, domain, uri, chainId = "solana:devnet" }) {
-  if (!pool || !domain || !uri) throw new Error("siws_configuration_required");
+/** Database-backed SIWS challenge, verification, session and logout service (MongoDB). */
+export function createSiwsService({ db, domain, uri, chainId = "solana:devnet" }) {
+  if (!db || !domain || !uri) throw new Error("siws_configuration_required");
+  const nonces = db.collection("wallet_nonces");
+  const wallets = db.collection("user_wallets");
+  const sessions = db.collection("wallet_sessions");
   async function challenge({ address = null } = {}) {
     if (address !== null) base58Decode(address);
     const nonce = randomBytes(24).toString("base64url");
     const issuedAt = new Date(); const expiresAt = new Date(issuedAt.getTime() + NONCE_MS);
-    await pool.query("INSERT INTO wallet_nonces (nonce_hash, expected_address, domain, uri, chain_id, issued_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7)", [sha(nonce), address, domain, uri, chainId, issuedAt, expiresAt]);
+    await nonces.insertOne({ nonce_hash: sha(nonce), expected_address: address, domain, uri, chain_id: chainId, issued_at: issuedAt, expires_at: expiresAt, consumed_at: null });
     return Object.freeze({ nonce, domain, uri, chain_id: chainId, issued_at: issuedAt.toISOString(), expiration_time: expiresAt.toISOString() });
   }
   async function authenticate(req) {
     const token = cookie(req, COOKIE);
     if (!token || !/^[A-Za-z0-9_-]{40,}$/.test(token)) return null;
-    const result = await pool.query(
-      `UPDATE wallet_sessions AS session
-       SET last_seen_at = now(), idle_expires_at = LEAST(session.absolute_expires_at, now() + interval '2 hours')
-       FROM user_wallets AS wallet
-       WHERE session.token_hash = $1 AND session.wallet_id = wallet.id AND session.idle_expires_at > now() AND session.absolute_expires_at > now()
-       RETURNING wallet.id AS wallet_id, wallet.address, session.idle_expires_at, session.absolute_expires_at`,
-      [sha(token)],
-    );
-    return result.rows[0] ?? null;
+    const now = new Date();
+    const session = await sessions.findOne({ _id: sha(token), idle_expires_at: { $gt: now }, absolute_expires_at: { $gt: now } });
+    if (!session) return null;
+    const idleExpires = new Date(Math.min(session.absolute_expires_at.getTime(), now.getTime() + IDLE_MS));
+    await sessions.updateOne({ _id: session._id }, { $set: { last_seen_at: now, idle_expires_at: idleExpires } });
+    const wallet = await wallets.findOne({ _id: session.wallet_id }, { projection: { address: 1 } });
+    if (!wallet) return null;
+    return { wallet_id: wallet._id, address: wallet.address, idle_expires_at: idleExpires, absolute_expires_at: session.absolute_expires_at };
   }
   return Object.freeze({
     challenge,
     async verify({ address, nonce, signature }) {
       const addressBytes = base58Decode(address);
       if (typeof nonce !== "string" || !/^[A-Za-z0-9_-]{20,}$/.test(nonce)) throw new Error("invalid_siws_nonce");
-      const nonceRow = await pool.query("SELECT * FROM wallet_nonces WHERE nonce_hash = $1 AND consumed_at IS NULL AND expires_at > now()", [sha(nonce)]);
-      const challengeRow = nonceRow.rows[0];
-      if (!challengeRow || challengeRow.expected_address && challengeRow.expected_address !== address) throw new Error("siws_challenge_expired");
-      const message = formatSiwsMessage({ domain: challengeRow.domain, address, uri: challengeRow.uri, chainId: challengeRow.chain_id, nonce, issuedAt: new Date(challengeRow.issued_at).toISOString(), expirationTime: new Date(challengeRow.expires_at).toISOString() });
+      const now = new Date();
+      const challengeRow = await nonces.findOne({ nonce_hash: sha(nonce), consumed_at: null, expires_at: { $gt: now } });
+      if (!challengeRow || (challengeRow.expected_address && challengeRow.expected_address !== address)) throw new Error("siws_challenge_expired");
+      const message = formatSiwsMessage({ domain: challengeRow.domain, address, uri: challengeRow.uri, chainId: challengeRow.chain_id, nonce, issuedAt: challengeRow.issued_at.toISOString(), expirationTime: challengeRow.expires_at.toISOString() });
       if (!verifySolanaSignature({ address, message, signature })) throw new Error("siws_signature_invalid");
       const token = randomBytes(32).toString("base64url");
-      const transaction = await pool.connect();
-      try {
-        await transaction.query("BEGIN");
-        const consumed = await transaction.query("UPDATE wallet_nonces SET consumed_at = now() WHERE id = $1 AND consumed_at IS NULL AND expires_at > now() RETURNING id", [challengeRow.id]);
-        if (!consumed.rowCount) throw new Error("siws_challenge_expired");
-        const wallet = await transaction.query("INSERT INTO user_wallets (address, last_authenticated_at) VALUES ($1, now()) ON CONFLICT (address) DO UPDATE SET last_authenticated_at = now() RETURNING id, address", [address]);
-        const now = new Date(); const absolute = new Date(now.getTime() + ABSOLUTE_MS); const idle = new Date(now.getTime() + IDLE_MS);
-        await transaction.query("INSERT INTO wallet_sessions (token_hash, wallet_id, idle_expires_at, absolute_expires_at) VALUES ($1, $2, $3, $4)", [sha(token), wallet.rows[0].id, idle, absolute]);
-        await transaction.query("COMMIT");
-        return Object.freeze({ token, wallet: wallet.rows[0], issued_at: now.toISOString(), expires_at: absolute.toISOString(), public_key_bytes: addressBytes.length });
-      } catch (error) { await transaction.query("ROLLBACK"); throw error; } finally { transaction.release(); }
+      const consumed = await nonces.findOneAndUpdate({ _id: challengeRow._id, consumed_at: null, expires_at: { $gt: new Date() } }, { $set: { consumed_at: new Date() } }, { returnDocument: "after" });
+      if (!consumed) throw new Error("siws_challenge_expired");
+      const wallet = await wallets.findOneAndUpdate({ address }, { $set: { last_authenticated_at: new Date() }, $setOnInsert: { first_seen_at: new Date() } }, { upsert: true, returnDocument: "after" });
+      const issued = new Date(); const absolute = new Date(issued.getTime() + ABSOLUTE_MS); const idle = new Date(issued.getTime() + IDLE_MS);
+      await sessions.insertOne({ _id: sha(token), wallet_id: wallet._id, created_at: issued, last_seen_at: issued, idle_expires_at: idle, absolute_expires_at: absolute });
+      return Object.freeze({ token, wallet: { id: wallet._id, address: wallet.address }, issued_at: issued.toISOString(), expires_at: absolute.toISOString(), public_key_bytes: addressBytes.length });
     },
-    async logout(req) { const token = cookie(req, COOKIE); if (token) await pool.query("DELETE FROM wallet_sessions WHERE token_hash = $1", [sha(token)]); },
+    async logout(req) { const token = cookie(req, COOKIE); if (token) await sessions.deleteOne({ _id: sha(token) }); },
     authenticate,
     setCookie,
     clearCookie(res) { res.clearCookie(COOKIE, { path: "/", sameSite: "strict", secure: secureCookies() }); },

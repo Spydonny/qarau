@@ -4,7 +4,7 @@ import test from "node:test";
 
 const baseEnvironment = {
   QARAU_RUNTIME_MODE: "integrated",
-  DATABASE_URL: "postgresql://role:password@postgres:5432/qarau",
+  MONGODB_URI: "mongodb://localhost:27017/qarau",
   S3_ENDPOINT: "http://object-storage:9000",
   S3_REGION: "us-east-1",
   S3_BUCKET: "qarau-private",

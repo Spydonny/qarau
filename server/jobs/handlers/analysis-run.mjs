@@ -29,9 +29,9 @@ function safeResult(result, interpretation) {
 }
 
 /** Runs deterministic, durable quantitative analysis for one frozen dataset version. */
-export function createAnalysisRunHandler({ pool, artifactStore }) {
-  if (!pool || !artifactStore) throw new Error("analysis_handler_dependencies_required");
-  const repositories = createRepositories(pool);
+export function createAnalysisRunHandler({ db, artifactStore }) {
+  if (!db || !artifactStore) throw new Error("analysis_handler_dependencies_required");
+  const repositories = createRepositories(db);
   return async function analyze(job) {
     const analysisRun = await repositories.analysisRuns.findById(job.payload.analysisRunId);
     if (!analysisRun) throw new Error("analysis_run_not_found");
@@ -48,22 +48,22 @@ export function createAnalysisRunHandler({ pool, artifactStore }) {
     }
     if (analysisRun.status === "failed" || analysisRun.status === "running") {
       // Safe resume: drop partial candidates/results from the failed attempt so a retry is idempotent.
-      await pool.query("DELETE FROM validation_results WHERE analysis_run_id = $1", [analysisRun.id]);
-      await pool.query("DELETE FROM leakage_check_results WHERE analysis_run_id = $1", [analysisRun.id]);
-      await pool.query("DELETE FROM alpha_score_components WHERE analysis_run_id = $1", [analysisRun.id]);
-      await pool.query("DELETE FROM screening_results WHERE signal_candidate_id IN (SELECT id FROM signal_candidates WHERE analysis_run_id = $1)", [analysisRun.id]);
-      await pool.query("DELETE FROM signal_candidates WHERE analysis_run_id = $1", [analysisRun.id]);
+      await repositories.validationResults.deleteForAnalysis(analysisRun.id);
+      await repositories.leakageChecks.deleteForAnalysis(analysisRun.id);
+      await repositories.alphaScoreComponents.deleteForAnalysis(analysisRun.id);
+      await repositories.screeningResults.deleteForAnalysis(analysisRun.id);
+      await repositories.signalCandidates.deleteForAnalysis(analysisRun.id);
     } else if (analysisRun.status !== "queued") throw new Error("analysis_run_not_queued");
     const version = await repositories.datasetVersions.findById(analysisRun.dataset_version_id);
     const market = await repositories.marketSnapshots.findById(analysisRun.market_snapshot_id);
     if (!version || version.status !== "sealed" || !market) throw new Error("analysis_inputs_not_sealed");
-    await pool.query("UPDATE analysis_runs SET status = 'running', started_at = now(), error_code = NULL WHERE id = $1 AND status IN ('queued', 'failed', 'running')", [analysisRun.id]);
+    await repositories.analysisRuns.markRunning(analysisRun.id);
     try {
       const normalizedRows = await readJsonl(artifactStore, version.normalized_object_key);
       const marketRows = (await readJsonl(artifactStore, market.normalized_object_key)).map((row) => ({ timestamp: row.timestamp, price: row.price ?? row.values?.price }));
       const result = runQuantitativeAnalysis({ normalizedRows, marketRows, quality: version.quality_metrics });
-      const sourceResult = await pool.query("SELECT source.title, source.description, source.source_type, source.expected_update_interval, source.temporal_coverage, source.reliability FROM sources AS source JOIN datasets AS dataset ON dataset.source_id = source.id WHERE dataset.id = $1", [version.dataset_id]);
-      const source = sourceResult.rows[0] ?? {};
+      const dataset = await repositories.datasets.findById(version.dataset_id);
+      const source = (dataset?.source_id ? await repositories.sources.findById(dataset.source_id) : null) ?? {};
       const interpretation = await analyzeSource({
         private: { summary: source.description ?? source.title ?? "Physical-world dataset" },
         measurementDescription: source.description ?? source.title ?? "Physical-world dataset",
@@ -100,8 +100,8 @@ export function createAnalysisRunHandler({ pool, artifactStore }) {
         const signalBytes = canonicalJsonlBytes(evaluation.signal.rows.map((row) => ({ available_at: row.availableAt, available_at_inferred: Boolean(row.availableAtInferred), timestamp: row.timestamp, values: { value: String(row.value) } })));
         const signalKey = `analysis/${analysisRun.id}/signals/${evaluation.signal.semanticFingerprint}.jsonl`;
         await artifactStore.putOnce({ key: signalKey, bytes: signalBytes, artifactHash: rawHash(signalBytes), contentType: "application/x-ndjson" });
-        const existing = await pool.query("SELECT id, artifact_object_key, artifact_hash FROM signal_candidates WHERE analysis_run_id = $1 AND semantic_fingerprint = $2", [analysisRun.id, Buffer.from(rawHash(Buffer.from(JSON.stringify({ fingerprint: evaluation.signal.semanticFingerprint, lag: evaluation.lag, horizon: evaluation.horizon }))), "hex")]);
-        const candidate = existing.rows[0] ?? await repositories.signalCandidates.create({
+        const existing = await repositories.signalCandidates.findByFingerprint(analysisRun.id, Buffer.from(rawHash(Buffer.from(JSON.stringify({ fingerprint: evaluation.signal.semanticFingerprint, lag: evaluation.lag, horizon: evaluation.horizon }))), "hex"));
+        const candidate = existing ?? await repositories.signalCandidates.create({
           analysis_run_id: analysisRun.id,
           source_column: evaluation.signal.field,
           transformation: evaluation.signal.transformation,
@@ -126,14 +126,14 @@ export function createAnalysisRunHandler({ pool, artifactStore }) {
       let bestArtifactHash = null;
       if (result.best) {
         const fp = Buffer.from(rawHash(Buffer.from(JSON.stringify({ fingerprint: result.best.signal.semanticFingerprint, lag: result.best.lag, horizon: result.best.horizon }))), "hex");
-        const found = await pool.query("SELECT id, artifact_hash FROM signal_candidates WHERE analysis_run_id = $1 AND semantic_fingerprint = $2", [analysisRun.id, fp]);
-        bestCandidateId = found.rows[0]?.id ?? null;
-        bestArtifactHash = found.rows[0]?.artifact_hash ?? null;
+        const found = await repositories.signalCandidates.findByFingerprint(analysisRun.id, fp);
+        bestCandidateId = found?.id ?? null;
+        bestArtifactHash = found?.artifact_hash ?? null;
       }
-      await pool.query(`UPDATE analysis_runs SET status = $2::analysis_status, manifest_object_key = $3, manifest_hash = $4, result_object_key = $5, result_hash = $6, report_object_key = $5, completed_at = now(), alpha_score = $7, score_version = 'quantitative-v2', blocking_leakage = $8, best_signal_candidate_id = $9, best_artifact_hash = $10 WHERE id = $1`, [analysisRun.id, completed ? "completed" : "rejected", manifestKey, Buffer.from(manifestHash, "hex"), resultKey, Buffer.from(resultHash, "hex"), result.best?.alpha.score ?? 0, result.best?.alpha.blocking ?? true, bestCandidateId, bestArtifactHash]);
+      await repositories.analysisRuns.markFinished(analysisRun.id, { status: completed ? "completed" : "rejected", manifest_object_key: manifestKey, manifest_hash: Buffer.from(manifestHash, "hex"), result_object_key: resultKey, result_hash: Buffer.from(resultHash, "hex"), report_object_key: resultKey, completed_at: new Date(), alpha_score: result.best?.alpha.score ?? 0, score_version: "quantitative-v2", blocking_leakage: result.best?.alpha.blocking ?? true, best_signal_candidate_id: bestCandidateId, best_artifact_hash: bestArtifactHash });
       return { analysisRunId: analysisRun.id, status: completed ? "completed" : "rejected", alphaScore: result.best?.alpha.score ?? 0, signalCount: result.signalCount, evaluationCount: result.evaluationCount };
     } catch (error) {
-      await pool.query("UPDATE analysis_runs SET status = 'failed', completed_at = now(), error_code = $2 WHERE id = $1", [analysisRun.id, String(error.message).slice(0, 128)]);
+      await repositories.analysisRuns.markFailed(analysisRun.id, String(error.message).slice(0, 128));
       throw error;
     }
   };

@@ -1,4 +1,4 @@
-import { inTransaction } from "../db/pool.mjs";
+import { fromDoc, isDuplicateKey, newId } from "../db/mongo.mjs";
 import { parseJobPayload } from "./payloads.mjs";
 import { retryDelaySeconds, retryableError } from "./retry-policy.mjs";
 
@@ -13,15 +13,26 @@ function nonEmptyString(value, label, maxLength = 256) {
   return value;
 }
 
+function addSeconds(date, seconds) {
+  return new Date(date.getTime() + seconds * 1_000);
+}
+
 /**
- * PostgreSQL-backed job queue with database-enforced idempotency and leases.
+ * MongoDB-backed job queue with collection-enforced idempotency and leases.
  * A worker may only settle the job while it owns the current, unexpired lease.
+ * Claim/heartbeat/settle use atomic findOneAndUpdate compare-and-set, which
+ * replaces FOR UPDATE SKIP LOCKED.
  */
-export class PostgresJobQueue {
-  constructor(pool, { defaultMaxAttempts = 5, leaseSeconds = 60 } = {}) {
-    this.pool = pool;
+export class MongoJobQueue {
+  constructor(db, { defaultMaxAttempts = 5, leaseSeconds = 60 } = {}) {
+    this.db = db;
+    this.col = db?.collection?.("jobs") ?? null;
     this.defaultMaxAttempts = positiveInteger(defaultMaxAttempts, "max_attempts");
     this.leaseSeconds = positiveInteger(leaseSeconds, "lease_seconds");
+  }
+
+  get pool() {
+    return this.db;
   }
 
   async enqueue({ type, payload, payloadVersion = 1, idempotencyKey, resourceType = null, resourceId = null, maxAttempts = this.defaultMaxAttempts }) {
@@ -32,19 +43,54 @@ export class PostgresJobQueue {
     if (payload === undefined) throw new Error("job_payload_required");
     const validatedPayload = parseJobPayload(type, payloadVersion, payload);
 
-    return inTransaction(this.pool, async (client) => {
-      const created = await client.query(
-        `INSERT INTO jobs (type, payload_version, payload, idempotency_key, resource_type, resource_id, max_attempts)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (idempotency_key) DO NOTHING
-         RETURNING *`,
-        [type, payloadVersion, validatedPayload, idempotencyKey, resourceType, resourceId, maxAttempts],
-      );
-      if (created.rowCount) return { job: created.rows[0], created: true };
+    const now = new Date();
+    const doc = {
+      _id: newId(),
+      type,
+      payload_version: payloadVersion,
+      payload: validatedPayload,
+      status: "queued",
+      attempts: 0,
+      max_attempts: maxAttempts,
+      idempotency_key: idempotencyKey,
+      resource_type: resourceType,
+      resource_id: resourceId,
+      progress: {},
+      available_at: now,
+      lease_owner: null,
+      lease_until: null,
+      heartbeat_at: null,
+      result: null,
+      error_code: null,
+      error_detail: null,
+      created_at: now,
+      started_at: null,
+      completed_at: null,
+      updated_at: now,
+    };
+    try {
+      await this.col.insertOne(doc);
+      return { job: fromDoc(doc), created: true };
+    } catch (error) {
+      if (!isDuplicateKey(error)) throw error;
+      const existing = await this.col.findOne({ idempotency_key: idempotencyKey });
+      return { job: fromDoc(existing), created: false };
+    }
+  }
 
-      const existing = await client.query("SELECT * FROM jobs WHERE idempotency_key = $1", [idempotencyKey]);
-      return { job: existing.rows[0], created: false };
-    });
+  claimFilter(types, now) {
+    const typeClause = types === null ? [] : [{ type: { $in: types } }];
+    return {
+      $and: [
+        ...typeClause,
+        {
+          $or: [
+            { status: { $in: ["queued", "retry_wait"] }, available_at: { $lte: now }, $expr: { $lt: ["$attempts", "$max_attempts"] } },
+            { status: "running", lease_until: { $lte: now } },
+          ],
+        },
+      ],
+    };
   }
 
   async claim({ workerId, types = null, leaseSeconds = this.leaseSeconds }) {
@@ -54,67 +100,75 @@ export class PostgresJobQueue {
       throw new Error("invalid_job_types");
     }
 
-    return inTransaction(this.pool, async (client) => {
-      const result = await client.query(
-        `WITH candidate AS (
-           SELECT id
-           FROM jobs
-           WHERE (
-               (attempts < max_attempts AND status IN ('queued', 'retry_wait') AND available_at <= now())
-               OR (status = 'running' AND lease_until <= now())
-             )
-             AND ($1::text[] IS NULL OR type = ANY($1))
-           ORDER BY available_at, created_at, id
-           FOR UPDATE SKIP LOCKED
-           LIMIT 1
-         )
-         UPDATE jobs AS job
-         SET status = 'running',
-             attempts = attempts + 1,
-             lease_owner = $2,
-             lease_until = now() + make_interval(secs => $3::integer),
-             heartbeat_at = now(),
-             started_at = COALESCE(started_at, now()),
-             updated_at = now(),
-             error_code = NULL,
-             error_detail = NULL
-         FROM candidate
-         WHERE job.id = candidate.id
-         RETURNING job.*`,
-        [types, workerId, duration],
+    const now = new Date();
+    const result = await this.col.findOneAndUpdate(
+      this.claimFilter(types, now),
+      {
+        $inc: { attempts: 1 },
+        $set: {
+          status: "running",
+          lease_owner: workerId,
+          lease_until: addSeconds(now, duration),
+          heartbeat_at: now,
+          updated_at: now,
+          error_code: null,
+          error_detail: null,
+        },
+        $setOnInsert: {},
+      },
+      { sort: { available_at: 1, created_at: 1, _id: 1 }, returnDocument: "after" },
+    );
+    if (!result) return null;
+    if (!result.started_at) {
+      const started = await this.col.findOneAndUpdate(
+        { _id: result._id, started_at: null },
+        { $set: { started_at: now } },
+        { returnDocument: "after" },
       );
-      return result.rows[0] ?? null;
-    });
+      return fromDoc(started ?? result);
+    }
+    return fromDoc(result);
+  }
+
+  leaseFilter(jobId, workerId, now) {
+    return { _id: jobId, status: "running", lease_owner: workerId, lease_until: { $gt: now } };
   }
 
   async heartbeat(jobId, workerId, leaseSeconds = this.leaseSeconds) {
     nonEmptyString(jobId, "job_id", 64);
     nonEmptyString(workerId, "worker_id", 128);
     const duration = positiveInteger(leaseSeconds, "lease_seconds");
-    const result = await this.pool.query(
-      `UPDATE jobs
-       SET lease_until = now() + make_interval(secs => $3::integer), heartbeat_at = now(), updated_at = now()
-       WHERE id = $1 AND status = 'running' AND lease_owner = $2 AND lease_until > now()
-       RETURNING *`,
-      [jobId, workerId, duration],
+    const now = new Date();
+    const result = await this.col.findOneAndUpdate(
+      this.leaseFilter(jobId, workerId, now),
+      { $set: { lease_until: addSeconds(now, duration), heartbeat_at: now, updated_at: now } },
+      { returnDocument: "after" },
     );
-    if (!result.rowCount) throw new Error("job_lease_not_owned");
-    return result.rows[0];
+    if (!result) throw new Error("job_lease_not_owned");
+    return fromDoc(result);
   }
 
   async complete(jobId, workerId, result = {}) {
     nonEmptyString(jobId, "job_id", 64);
     nonEmptyString(workerId, "worker_id", 128);
-    const settled = await this.pool.query(
-      `UPDATE jobs
-       SET status = 'completed', result = $3, completed_at = now(), updated_at = now(),
-           lease_owner = NULL, lease_until = NULL, heartbeat_at = NULL
-       WHERE id = $1 AND status = 'running' AND lease_owner = $2 AND lease_until > now()
-       RETURNING *`,
-      [jobId, workerId, result],
+    const now = new Date();
+    const settled = await this.col.findOneAndUpdate(
+      this.leaseFilter(jobId, workerId, now),
+      {
+        $set: {
+          status: "completed",
+          result,
+          completed_at: now,
+          updated_at: now,
+          lease_owner: null,
+          lease_until: null,
+          heartbeat_at: null,
+        },
+      },
+      { returnDocument: "after" },
     );
-    if (!settled.rowCount) throw new Error("job_lease_not_owned");
-    return settled.rows[0];
+    if (!settled) throw new Error("job_lease_not_owned");
+    return fromDoc(settled);
   }
 
   async fail(jobId, workerId, { errorCode, errorDetail = null, retryDelaySeconds: explicitRetryDelaySeconds = null } = {}) {
@@ -123,54 +177,56 @@ export class PostgresJobQueue {
     nonEmptyString(errorCode, "error_code", 128);
     if (explicitRetryDelaySeconds !== null && (!Number.isInteger(explicitRetryDelaySeconds) || explicitRetryDelaySeconds < 0)) throw new Error("invalid_retry_delay_seconds");
 
-    return inTransaction(this.pool, async (client) => {
-      const current = await client.query(
-        "SELECT * FROM jobs WHERE id = $1 FOR UPDATE",
-        [jobId],
-      );
-      const job = current.rows[0];
-      if (!job || job.status !== "running" || job.lease_owner !== workerId || new Date(job.lease_until) <= new Date()) {
-        throw new Error("job_lease_not_owned");
-      }
-      const terminal = job.attempts >= job.max_attempts || !retryableError(errorCode);
-      const retryDelaySeconds = explicitRetryDelaySeconds ?? retryDelaySecondsFor(job.attempts);
-      const updated = await client.query(
-        `UPDATE jobs
-         SET status = $2::job_status,
-             available_at = CASE WHEN $2 = 'retry_wait' THEN now() + make_interval(secs => $3::integer) ELSE available_at END,
-             error_code = $4,
-             error_detail = $5,
-             lease_owner = NULL,
-             lease_until = NULL,
-             heartbeat_at = NULL,
-             completed_at = CASE WHEN $2 = 'dead_letter' THEN now() ELSE completed_at END,
-             updated_at = now()
-         WHERE id = $1
-         RETURNING *`,
-        [jobId, terminal ? "dead_letter" : "retry_wait", retryDelaySeconds, errorCode, errorDetail],
-      );
-      return updated.rows[0];
-    });
+    const now = new Date();
+    const job = await this.col.findOne({ _id: jobId });
+    if (!job || job.status !== "running" || job.lease_owner !== workerId || !(job.lease_until instanceof Date && job.lease_until > now)) {
+      throw new Error("job_lease_not_owned");
+    }
+    const terminal = job.attempts >= job.max_attempts || !retryableError(errorCode);
+    const delay = explicitRetryDelaySeconds ?? retryDelaySeconds(job.attempts);
+    const settled = await this.col.findOneAndUpdate(
+      this.leaseFilter(jobId, workerId, new Date()),
+      {
+        $set: {
+          status: terminal ? "dead_letter" : "retry_wait",
+          error_code: errorCode,
+          error_detail: errorDetail,
+          lease_owner: null,
+          lease_until: null,
+          heartbeat_at: null,
+          updated_at: new Date(),
+          ...(terminal ? { completed_at: new Date() } : { available_at: addSeconds(new Date(), delay) }),
+        },
+      },
+      { returnDocument: "after" },
+    );
+    if (!settled) throw new Error("job_lease_not_owned");
+    return fromDoc(settled);
   }
 
   async recoverExpired() {
-    const result = await this.pool.query(
-      `UPDATE jobs
-       SET status = CASE WHEN attempts >= max_attempts THEN 'dead_letter'::job_status ELSE 'retry_wait'::job_status END,
-           lease_owner = NULL,
-           lease_until = NULL,
-           heartbeat_at = NULL,
-           completed_at = CASE WHEN attempts >= max_attempts THEN now() ELSE completed_at END,
-           error_code = COALESCE(error_code, 'lease_expired'),
-           error_detail = COALESCE(error_detail, 'Worker lease expired before the job settled'),
-           updated_at = now()
-       WHERE status = 'running' AND lease_until <= now()
-       RETURNING *`,
-    );
-    return result.rows;
+    const now = new Date();
+    const expired = await this.col.find({ status: "running", lease_until: { $lte: now } }).toArray();
+    for (const job of expired) {
+      const terminal = job.attempts >= job.max_attempts;
+      await this.col.updateOne(
+        { _id: job._id, status: "running", lease_until: { $lte: new Date() } },
+        {
+          $set: {
+            status: terminal ? "dead_letter" : "retry_wait",
+            lease_owner: null,
+            lease_until: null,
+            heartbeat_at: null,
+            error_code: job.error_code ?? "lease_expired",
+            error_detail: job.error_detail ?? "Worker lease expired before the job settled",
+            updated_at: new Date(),
+            ...(terminal ? { completed_at: new Date() } : {}),
+          },
+        },
+      );
+    }
+    return expired.map(fromDoc);
   }
 }
 
-function retryDelaySecondsFor(attempt) {
-  return retryDelaySeconds(attempt);
-}
+export { MongoJobQueue as PostgresJobQueue };

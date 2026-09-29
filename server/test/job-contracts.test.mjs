@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { jobIdempotencyKey, jobTypesForRole, parseJobPayload } from "../jobs/payloads.mjs";
 import { retryDelaySeconds, retryableError } from "../jobs/retry-policy.mjs";
-import { PostgresJobQueue } from "../jobs/queue.mjs";
+import { MongoJobQueue, PostgresJobQueue } from "../jobs/queue.mjs";
 
 test("durable job payloads are strict, versioned, and role-scoped", () => {
   const payload = { sourceId: "123e4567-e89b-12d3-a456-426614174000", reason: "manual", scheduledFor: "2026-09-05T10:00:00.000Z" };
@@ -14,8 +14,12 @@ test("durable job payloads are strict, versioned, and role-scoped", () => {
 });
 
 test("queue rejects work whose payload is not covered by the contract", async () => {
-  const queue = new PostgresJobQueue({});
+  const queue = new MongoJobQueue({});
   await assert.rejects(() => queue.enqueue({ type: "scrape.source", payload: { sourceId: "not-a-uuid" }, idempotencyKey: "invalid" }));
+});
+
+test("the legacy PostgresJobQueue import keeps resolving to the Mongo queue", () => {
+  assert.equal(PostgresJobQueue, MongoJobQueue);
 });
 
 test("retry policy is bounded and leaves permanent errors out of the retry loop", () => {

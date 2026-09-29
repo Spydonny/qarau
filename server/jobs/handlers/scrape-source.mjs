@@ -23,26 +23,16 @@ function retryAt(failures) {
   return new Date(Date.now() + hours * 60 * 60 * 1_000);
 }
 
-async function markSourceFailure(pool, sourceId) {
-  const result = await pool.query(
-    `UPDATE sources
-     SET reliability = jsonb_set(COALESCE(reliability, '{}'::jsonb), '{consecutive_failures}', to_jsonb(COALESCE((reliability->>'consecutive_failures')::integer, 0) + 1), true),
-         next_scrape_at = $2,
-         status = CASE WHEN COALESCE((reliability->>'consecutive_failures')::integer, 0) + 1 >= 3 THEN 'broken'::source_status ELSE status END,
-         updated_at = now()
-     WHERE id = $1
-     RETURNING reliability`,
-    [sourceId, new Date(Date.now() + 60 * 60 * 1_000)],
-  );
-  const failures = Number(result.rows[0]?.reliability?.consecutive_failures ?? 1);
-  await pool.query("UPDATE sources SET next_scrape_at = $2 WHERE id = $1", [sourceId, retryAt(failures)]);
+async function markSourceFailure(repositories, sourceId) {
+  const failures = await repositories.sources.markFailure(sourceId, new Date(Date.now() + 60 * 60 * 1_000));
+  await repositories.sources.updateById(sourceId, { next_scrape_at: retryAt(failures) });
   return failures;
 }
 
 /** Executes the full raw-capture → normalized immutable-version workflow. */
-export function createScrapeSourceHandler({ pool, artifactStore, sourceUrlKey = process.env.SOURCE_URL_ENCRYPTION_KEY, requestBytes }) {
-  if (!pool || !artifactStore) throw new Error("scrape_handler_dependencies_required");
-  const repositories = createRepositories(pool);
+export function createScrapeSourceHandler({ db, artifactStore, sourceUrlKey = process.env.SOURCE_URL_ENCRYPTION_KEY, requestBytes }) {
+  if (!db || !artifactStore) throw new Error("scrape_handler_dependencies_required");
+  const repositories = createRepositories(db);
   return async function scrapeSource(job) {
     const sourceId = job.payload.sourceId;
     const source = await repositories.sources.findById(sourceId);
@@ -82,13 +72,13 @@ export function createScrapeSourceHandler({ pool, artifactStore, sourceUrlKey = 
         normalizer_version: normalized.normalizerVersion,
       });
       const sealed = await repositories.datasetVersions.transition(version.id, "stored", "sealed", { sealed_at: new Date() });
-      await pool.query(`UPDATE ingestion_runs SET status = 'completed', retrieved_at = $2, finished_at = now(), response_headers = $3, content_type = $4, content_length = $5, content_hash = $6, raw_object_key = $7, parser_name = $8, parser_version = $9, record_count = $10, change_type = $11 WHERE id = $1`, [run.id, snapshot.retrievedAt, snapshot.responseHeaders, snapshot.contentType, snapshot.contentLength, Buffer.from(snapshot.rawHash, "hex"), snapshot.rawObjectKey, parsed.parserName, parsed.parserVersion, normalized.rows.length, change.changeType]);
-      await pool.query("UPDATE sources SET status = 'active', reliability = COALESCE(reliability, '{}'::jsonb) - 'consecutive_failures', last_successful_ingestion_at = now(), next_scrape_at = $2, updated_at = now() WHERE id = $1", [sourceId, nextScrapeAt()]);
+      await repositories.ingestionRuns.finish(run.id, { status: "completed", retrieved_at: snapshot.retrievedAt, finished_at: new Date(), response_headers: snapshot.responseHeaders, content_type: snapshot.contentType, content_length: snapshot.contentLength, content_hash: Buffer.from(snapshot.rawHash, "hex"), raw_object_key: snapshot.rawObjectKey, parser_name: parsed.parserName, parser_version: parsed.parserVersion, record_count: normalized.rows.length, change_type: change.changeType });
+      await repositories.sources.markSuccess(sourceId, nextScrapeAt());
       return { sourceId, ingestionRunId: run.id, datasetVersionId: sealed.id, version: sealed.version, changeType: change.changeType, normalizedHash: normalized.hash };
     } catch (error) {
       if (version) await repositories.datasetVersions.transition(version.id, version.status === "allocated" ? "allocated" : version.status, "failed").catch(() => {});
-      await pool.query("UPDATE ingestion_runs SET status = 'failed', finished_at = now(), error_code = $2, error_detail = $3 WHERE id = $1", [run.id, "scrape_failed", String(error.message).slice(0, 1_000)]);
-      await markSourceFailure(pool, sourceId);
+      await repositories.ingestionRuns.markFailed(run.id, "scrape_failed", String(error.message).slice(0, 1_000));
+      await markSourceFailure(repositories, sourceId);
       throw error;
     }
   };

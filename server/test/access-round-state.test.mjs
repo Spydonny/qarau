@@ -20,23 +20,34 @@ test("effective access-round state never rewinds terminal states", () => {
 });
 
 test("settlement reconciles a stale upcoming round to ended and proceeds", async () => {
-  const queries = [];
-  const round = { id: "round-id", state: "upcoming", round_pda: "round-pda", opens_at: opensAt, closes_at: closesAt };
-  const pool = {
-    query: async (sql, params) => {
-      queries.push([sql, params]);
-      if (sql.startsWith("SELECT")) return { rows: [round] };
-      return { rows: [], rowCount: 1 };
-    },
+  const store = new Map();
+  const roundDoc = { _id: "round-id", state: "upcoming", round_pda: "round-pda", network: "devnet", confirmation_status: "finalized", chain_state_source: "rpc_verified", opens_at: opensAt, closes_at: closesAt };
+  store.set("round-id", roundDoc);
+  const updates = [];
+  const match = (doc, filter) => Object.entries(filter).every(([key, cond]) => {
+    if (cond && typeof cond === "object" && "$in" in cond) return cond.$in.includes(doc[key]);
+    return doc[key] === cond;
+  });
+  const db = {
+    collection: () => ({
+      findOne: async (filter) => [roundDoc].find((doc) => match(doc, filter)) ?? null,
+      findOneAndUpdate: async (filter, update) => {
+        const doc = [roundDoc].find((d) => match(d, filter)) ?? null;
+        if (!doc) return null;
+        Object.assign(doc, update.$set ?? {});
+        updates.push(update.$set ?? {});
+        return { ...doc };
+      },
+    }),
   };
   const fetchImpl = async () => ({ ok: true, json: async () => ({ transaction: { signature: "settlement-signature" } }) });
   const readAccessRoundImpl = async () => ({ status: 2, bidCount: 3, winnersCount: 2, clearingPriceLamports: 50, slot: 42, treasury: "treasury", claimedCount: 0 });
-  const settle = createChainSettleHandler({ pool, publisherSignerUrl: "http://signer", publisherSignerToken: "token", rpcUrl: "http://rpc", programId: "program", fetchImpl, readAccessRoundImpl, now: () => Date.parse("2026-09-06T11:00:01.000Z") });
+  const settle = createChainSettleHandler({ db, publisherSignerUrl: "http://signer", publisherSignerToken: "token", rpcUrl: "http://rpc", programId: "program", fetchImpl, readAccessRoundImpl, now: () => Date.parse("2026-09-06T11:00:01.000Z") });
 
-  const result = await settle({ payload: { accessRoundId: round.id } });
+  const result = await settle({ payload: { accessRoundId: roundDoc._id } });
 
-  assert.equal(result.accessRoundId, round.id);
+  assert.equal(result.accessRoundId, roundDoc._id);
   assert.equal(result.winnersCount, 2);
-  assert.ok(queries.some(([sql, params]) => sql.includes("SET state = $2") && params[1] === "ended"));
-  assert.ok(queries.some(([sql]) => sql.includes("SET state = 'settled'")));
+  assert.ok(updates.some((patch) => patch.state === "ended"));
+  assert.ok(updates.some((patch) => patch.state === "settled"));
 });

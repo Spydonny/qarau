@@ -9,43 +9,6 @@ x-integrated: &integrated
   NODE_ENV: production
 
 services:
-  postgres:
-    image: postgres:17.6-bookworm
-    environment:
-      POSTGRES_DB: qarau
-      POSTGRES_USER: qarau_owner
-      POSTGRES_PASSWORD: qarau-owner-local-only
-    volumes:
-      - qarau-postgres:/var/lib/postgresql/data
-      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U qarau_owner -d qarau"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-    networks: [private]
-
-  # Disposable and isolated: integration tests may never point at the durable
-  # application database. The tmpfs is recreated for every test run.
-  postgres-test:
-    image: postgres:17.6-bookworm
-    profiles: ["test"]
-    environment:
-      POSTGRES_DB: qarau_test
-      POSTGRES_USER: qarau_owner
-      POSTGRES_PASSWORD: qarau-owner-local-only
-    tmpfs:
-      - /var/lib/postgresql/data
-    volumes:
-      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
-    ports: ["127.0.0.1:55432:5432"]
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U qarau_owner -d qarau_test"]
-      interval: 2s
-      timeout: 3s
-      retries: 30
-    networks: [public]
-
   object-storage:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z
     command: server /data
@@ -65,7 +28,6 @@ services:
     image: minio/mc:RELEASE.2025-04-16T18-13-26Z
     depends_on:
       object-storage:
-        condition: service_healthy
     environment:
       MINIO_ROOT_USER: qarau-root-local
       MINIO_ROOT_PASSWORD: qarau-root-secret-local-only
@@ -90,7 +52,8 @@ services:
       <<: *integrated
       COOKIE_SECURE: "false"
       API_PORT: 8787
-      DATABASE_URL: postgresql://qarau_api:qarau-api-local-only@postgres:5432/qarau
+      MONGODB_URI: ${MONGODB_URI:-mongodb://127.0.0.1:27017/qarau}
+      MONGODB_DB: qarau
       S3_ENDPOINT: http://object-storage:9000
       S3_REGION: us-east-1
       S3_BUCKET: qarau-private
@@ -104,8 +67,6 @@ services:
       OWNER_PASSWORD_HASH: ${OWNER_PASSWORD_HASH:-}
       OWNER_ID: ${OWNER_ID:-01}
     depends_on:
-      postgres:
-        condition: service_healthy
       object-storage-init:
         condition: service_completed_successfully
     ports: ["8787:8787"]
@@ -123,10 +84,8 @@ services:
     command: ["npm", "run", "db:migrate"]
     environment:
       <<: *integrated
-      DATABASE_URL: postgresql://qarau_owner:qarau-owner-local-only@postgres:5432/qarau
-    depends_on:
-      postgres:
-        condition: service_healthy
+      MONGODB_URI: ${MONGODB_URI:-mongodb://127.0.0.1:27017/qarau}
+      MONGODB_DB: qarau
     restart: "no"
     profiles: ["tools"]
 
@@ -135,12 +94,12 @@ services:
     command: ["npm", "run", "start:worker:discovery"]
     environment:
       <<: *integrated
-      DATABASE_URL: postgresql://qarau_worker:qarau-worker-local-only@postgres:5432/qarau
+      MONGODB_URI: ${MONGODB_URI:-mongodb://127.0.0.1:27017/qarau}
+      MONGODB_DB: qarau
       SOURCE_URL_ENCRYPTION_KEY: ${SOURCE_URL_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       DATA_GOV_API_KEY: ${DATA_GOV_API_KEY:-DEMO_KEY}
       QARAU_WORKER_EXECUTE: "true"
       SERVICE_HEALTH_PORT: 8791
-    depends_on: { postgres: { condition: service_healthy } }
     networks: [private, egress]
 
   worker-scrape:
@@ -148,7 +107,8 @@ services:
     command: ["npm", "run", "start:worker:scrape"]
     environment:
       <<: *integrated
-      DATABASE_URL: postgresql://qarau_worker:qarau-worker-local-only@postgres:5432/qarau
+      MONGODB_URI: ${MONGODB_URI:-mongodb://127.0.0.1:27017/qarau}
+      MONGODB_DB: qarau
       S3_ENDPOINT: http://object-storage:9000
       S3_REGION: us-east-1
       S3_BUCKET: qarau-private
@@ -158,7 +118,7 @@ services:
       SOURCE_URL_ENCRYPTION_KEY: ${SOURCE_URL_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       QARAU_WORKER_EXECUTE: "true"
       SERVICE_HEALTH_PORT: 8792
-    depends_on: { postgres: { condition: service_healthy }, object-storage-init: { condition: service_completed_successfully } }
+    depends_on: { object-storage-init: { condition: service_completed_successfully } }
     networks: [private, egress]
 
   worker-analysis:
@@ -166,7 +126,8 @@ services:
     command: ["npm", "run", "start:worker:analysis"]
     environment:
       <<: *integrated
-      DATABASE_URL: postgresql://qarau_worker:qarau-worker-local-only@postgres:5432/qarau
+      MONGODB_URI: ${MONGODB_URI:-mongodb://127.0.0.1:27017/qarau}
+      MONGODB_DB: qarau
       S3_ENDPOINT: http://object-storage:9000
       S3_REGION: us-east-1
       S3_BUCKET: qarau-private
@@ -175,7 +136,7 @@ services:
       S3_REQUIRE_SSE: "false"
       QARAU_WORKER_EXECUTE: "true"
       SERVICE_HEALTH_PORT: 8793
-    depends_on: { postgres: { condition: service_healthy }, object-storage-init: { condition: service_completed_successfully } }
+    depends_on: { object-storage-init: { condition: service_completed_successfully } }
     # This worker retrieves public market targets (Coinbase/ECB); it needs
     # outbound access but remains off the public application network.
     networks: [private, egress]
@@ -185,7 +146,8 @@ services:
     command: ["npm", "run", "start:worker:chain"]
     environment:
       <<: *integrated
-      DATABASE_URL: postgresql://qarau_chain:qarau-chain-local-only@postgres:5432/qarau
+      MONGODB_URI: ${MONGODB_URI:-mongodb://127.0.0.1:27017/qarau}
+      MONGODB_DB: qarau
       S3_ENDPOINT: http://object-storage:9000
       S3_REGION: us-east-1
       S3_BUCKET: qarau-private
@@ -198,7 +160,7 @@ services:
       PUBLISHER_SIGNER_TOKEN: ${PUBLISHER_SIGNER_TOKEN:-local-publisher-token-change-me}
       QARAU_WORKER_EXECUTE: "true"
       SERVICE_HEALTH_PORT: 8794
-    depends_on: { postgres: { condition: service_healthy }, object-storage-init: { condition: service_completed_successfully }, publisher-signer: { condition: service_started } }
+    depends_on: { object-storage-init: { condition: service_completed_successfully }, publisher-signer: { condition: service_started } }
     networks: [private, egress]
 
   scheduler:
@@ -206,10 +168,10 @@ services:
     command: ["npm", "run", "start:scheduler"]
     environment:
       <<: *integrated
-      DATABASE_URL: postgresql://qarau_worker:qarau-worker-local-only@postgres:5432/qarau
+      MONGODB_URI: ${MONGODB_URI:-mongodb://127.0.0.1:27017/qarau}
+      MONGODB_DB: qarau
       QARAU_WORKER_EXECUTE: "true"
       SERVICE_HEALTH_PORT: 8795
-    depends_on: { postgres: { condition: service_healthy } }
 
   publisher-signer-init:
     <<: *app
@@ -244,7 +206,6 @@ networks:
     internal: true
 
 volumes:
-  qarau-postgres:
   qarau-objects:
   qarau-legacy-private:
   qarau-signer:

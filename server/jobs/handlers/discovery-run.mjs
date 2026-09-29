@@ -24,9 +24,9 @@ function intervalFor(value) {
 }
 
 /** Persists live search candidates; uniqueness is enforced by canonical URL hash. */
-export function createDiscoveryRunHandler({ pool, sourceUrlKey = process.env.SOURCE_URL_ENCRYPTION_KEY, discover = discoverCandidates }) {
-  if (!pool || !sourceUrlKey) throw new Error("discovery_handler_dependencies_required");
-  const repositories = createRepositories(pool);
+export function createDiscoveryRunHandler({ db, sourceUrlKey = process.env.SOURCE_URL_ENCRYPTION_KEY, discover = discoverCandidates }) {
+  if (!db || !sourceUrlKey) throw new Error("discovery_handler_dependencies_required");
+  const repositories = createRepositories(db);
   return async function runDiscovery(job) {
     const candidates = await discover({ provider: "AUTOMATED_WEB", queryGroup: job.payload.queryGroup });
     let created = 0;
@@ -60,10 +60,7 @@ export function createDiscoveryRunHandler({ pool, sourceUrlKey = process.env.SOU
         }
       } else deduplicated += 1;
       const screening = screenCandidate(candidate, { unique: true });
-      await pool.query(
-        "INSERT INTO source_screenings (source_id, gates, score, passed, rejection_reasons) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (source_id) DO NOTHING",
-        [source.id, screening.gates, screening.score, screening.passed, screening.rejectionReasons],
-      );
+      await repositories.sourceScreenings.upsertForSource(source.id, { gates: screening.gates, score: screening.score, passed: screening.passed, rejection_reasons: screening.rejectionReasons });
       await repositories.discoveries.create({
         source_id: source.id,
         provider: candidate.discoveryProvider ?? "AUTOMATED_WEB",

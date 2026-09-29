@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createPool, inTransaction } from "./pool.mjs";
+import { createDatabase, toDoc } from "./mongo.mjs";
 import { migrate } from "./migrate.mjs";
 
 const defaultStatePath = fileURLToPath(new URL("../data/private/qarau-state.enc", import.meta.url));
@@ -129,45 +129,59 @@ export function buildLegacyImportPlan(state, { statePath = defaultStatePath, key
   return Object.freeze({ sourceRows, idMap, datasets, derivations, analysis, legacyCommitments, report });
 }
 
-async function persistPlan(pool, plan, { backupReference }) {
-  return inTransaction(pool, async (client) => {
+async function insertIgnore(collection, doc, filter) {
+  await collection.updateOne(filter, { $setOnInsert: toDoc(doc) }, { upsert: true });
+}
+
+async function persistPlan(db, plan, { backupReference }) {
     const importRunId = deterministicUuid("legacy-import-run", plan.report.stateHash);
-    await client.query(
-      `INSERT INTO legacy_import_runs (id, source_state_hash, source_state_path_hash, key_reference, report)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (source_state_hash) DO NOTHING`,
-      [importRunId, Buffer.from(plan.report.stateHash, "hex"), Buffer.from(plan.report.statePathHash, "hex"), backupReference, plan.report],
-    );
+    await insertIgnore(db.collection("legacy_import_runs"), {
+      id: importRunId,
+      source_state_hash: Buffer.from(plan.report.stateHash, "hex"),
+      source_state_path_hash: Buffer.from(plan.report.statePathHash, "hex"),
+      key_reference: backupReference,
+      report: plan.report,
+    }, { source_state_hash: Buffer.from(plan.report.stateHash, "hex") });
     for (const source of plan.sourceRows) {
-      await client.query(
-        `INSERT INTO sources (id, canonical_url_ciphertext, canonical_url_hash, domain, title, description, source_type, status, discovered_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::source_type, $8::source_status, $9)
-         ON CONFLICT (id) DO NOTHING`,
-        [source.id, source.canonicalUrlCiphertext, source.canonicalUrlHash, source.domain, source.title, source.description, source.sourceType, source.status, source.discoveredAt],
-      );
+      await insertIgnore(db.collection("sources"), {
+        id: source.id,
+        canonical_url_ciphertext: source.canonicalUrlCiphertext,
+        canonical_url_hash: source.canonicalUrlHash,
+        domain: source.domain,
+        title: source.title,
+        description: source.description,
+        source_type: source.sourceType,
+        status: source.status,
+        discovered_at: source.discoveredAt,
+      }, { _id: source.id });
     }
     for (const dataset of plan.datasets) {
-      await client.query("INSERT INTO datasets (id, source_id, name) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING", [dataset.id, dataset.sourceId, dataset.name]);
+      await insertIgnore(db.collection("datasets"), { id: dataset.id, source_id: dataset.sourceId, name: dataset.name }, { _id: dataset.id });
     }
     for (const mapping of plan.idMap) {
-      await client.query("INSERT INTO legacy_id_map (legacy_kind, legacy_id, new_id, import_run_id) VALUES ($1, $2, $3, $4) ON CONFLICT (legacy_kind, legacy_id) DO NOTHING", [mapping.legacyKind, mapping.legacyId, mapping.newId, importRunId]);
+      await insertIgnore(db.collection("legacy_id_map"), { legacy_kind: mapping.legacyKind, legacy_id: mapping.legacyId, new_id: mapping.newId, import_run_id: importRunId }, { legacy_kind: mapping.legacyKind, legacy_id: mapping.legacyId });
     }
     for (const row of plan.derivations) {
-      await client.query(
-        `INSERT INTO legacy_dataset_derivations (id, dataset_id, legacy_source_id, legacy_snapshot_id, classification, legacy_rows, legacy_rows_hash, legacy_reported_hash, quality_metrics, provenance)
-         VALUES ($1, $2, $3, $4, 'LEGACY_DERIVED', $5, $6, $7, $8, $9)
-         ON CONFLICT (id) DO NOTHING`,
-        [row.id, row.datasetId, row.legacySourceId, row.legacySnapshotId, row.rows, row.rowsHash, row.legacyReportedHash, row.qualityMetrics, row.provenance],
-      );
+      await insertIgnore(db.collection("legacy_dataset_derivations"), {
+        id: row.id,
+        dataset_id: row.datasetId,
+        legacy_source_id: row.legacySourceId,
+        legacy_snapshot_id: row.legacySnapshotId,
+        classification: "LEGACY_DERIVED",
+        legacy_rows: row.rows,
+        legacy_rows_hash: row.rowsHash,
+        legacy_reported_hash: row.legacyReportedHash,
+        quality_metrics: row.qualityMetrics,
+        provenance: row.provenance,
+      }, { _id: row.id });
     }
     for (const row of plan.analysis) {
-      await client.query("INSERT INTO legacy_analysis_records (id, dataset_id, legacy_test_id, classification, payload, payload_hash) VALUES ($1, $2, $3, 'LEGACY_UNSEALED', $4, $5) ON CONFLICT (legacy_test_id) DO NOTHING", [row.id, row.datasetId, row.legacyTestId, row.payload, row.payloadHash]);
+      await insertIgnore(db.collection("legacy_analysis_records"), { id: row.id, dataset_id: row.datasetId, legacy_test_id: row.legacyTestId, classification: "LEGACY_UNSEALED", payload: row.payload, payload_hash: row.payloadHash }, { legacy_test_id: row.legacyTestId });
     }
     for (const row of plan.legacyCommitments) {
-      await client.query("INSERT INTO legacy_commitment_records (id, legacy_commitment_id, classification, payload, payload_hash) VALUES ($1, $2, 'LEGACY_MEMO_UNVERIFIED', $3, $4) ON CONFLICT (legacy_commitment_id) DO NOTHING", [row.id, row.legacyCommitmentId, row.payload, row.payloadHash]);
+      await insertIgnore(db.collection("legacy_commitment_records"), { id: row.id, legacy_commitment_id: row.legacyCommitmentId, classification: "LEGACY_MEMO_UNVERIFIED", payload: row.payload, payload_hash: row.payloadHash }, { legacy_commitment_id: row.legacyCommitmentId });
     }
     return { importRunId, ...plan.report };
-  });
 }
 
 export async function importLegacy({ environment = process.env, dryRun = true } = {}) {
@@ -175,12 +189,12 @@ export async function importLegacy({ environment = process.env, dryRun = true } 
   const legacy = await readLegacyState();
   const plan = buildLegacyImportPlan(legacy.state, legacy);
   if (dryRun) return { dryRun: true, ...plan.report };
-  const pool = createPool(environment.DATABASE_URL);
+  const { db, close } = await createDatabase(environment.MONGODB_URI, environment.MONGODB_DB ?? "qarau");
   try {
-    await migrate(pool);
-    return { dryRun: false, ...(await persistPlan(pool, plan, { backupReference: environment.LEGACY_BACKUP_REFERENCE })) };
+    await migrate(db);
+    return { dryRun: false, ...(await persistPlan(db, plan, { backupReference: environment.LEGACY_BACKUP_REFERENCE })) };
   } finally {
-    await pool.end();
+    await close();
   }
 }
 
