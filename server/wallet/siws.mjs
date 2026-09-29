@@ -11,6 +11,10 @@ function secureCookies() {
   return process.env.COOKIE_SECURE == null ? process.env.NODE_ENV === "production" : process.env.COOKIE_SECURE === "true";
 }
 
+function cookieSameSite() {
+  return process.env.ALLOWED_ORIGIN && secureCookies() ? "none" : "strict";
+}
+
 function sha(value) { return createHash("sha256").update(value).digest(); }
 function cookie(req, name) { for (const part of String(req.headers.cookie ?? "").split(";")) { const [key, ...rest] = part.trim().split("="); if (key === name) return decodeURIComponent(rest.join("=")); } return null; }
 
@@ -44,7 +48,7 @@ export function verifySolanaSignature({ address, message, signature }) {
 }
 
 function setCookie(res, token) {
-  res.cookie(COOKIE, token, { httpOnly: true, sameSite: "strict", secure: secureCookies(), path: "/", maxAge: ABSOLUTE_MS });
+  res.cookie(COOKIE, token, { httpOnly: true, sameSite: cookieSameSite(), secure: secureCookies(), path: "/", maxAge: ABSOLUTE_MS });
 }
 
 /** Database-backed SIWS challenge, verification, session and logout service (MongoDB). */
@@ -93,7 +97,7 @@ export function createSiwsService({ db, domain, uri, chainId = "solana:devnet" }
     async logout(req) { const token = cookie(req, COOKIE); if (token) await sessions.deleteOne({ _id: sha(token) }); },
     authenticate,
     setCookie,
-    clearCookie(res) { res.clearCookie(COOKIE, { path: "/", sameSite: "strict", secure: secureCookies() }); },
+    clearCookie(res) { res.clearCookie(COOKIE, { path: "/", sameSite: cookieSameSite(), secure: secureCookies() }); },
   });
 }
 

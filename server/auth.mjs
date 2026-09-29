@@ -40,6 +40,10 @@ function secureCookies() {
   return process.env.COOKIE_SECURE == null ? process.env.NODE_ENV === "production" : process.env.COOKIE_SECURE === "true";
 }
 
+function cookieSameSite() {
+  return process.env.ALLOWED_ORIGIN && secureCookies() ? "none" : "strict";
+}
+
 let ownerId = process.env.OWNER_ID ?? "01";
 let credential = null;
 /** Set only when the server had to invent a password at boot. */
@@ -132,7 +136,7 @@ function readCookie(req, name) {
 function setSessionCookie(res, token) {
   res.cookie(COOKIE, token, {
     httpOnly: true, // never readable from page scripts
-    sameSite: "strict",
+    sameSite: cookieSameSite(),
     secure: secureCookies(),
     path: "/",
     maxAge: ABSOLUTE_MS,
@@ -223,7 +227,7 @@ export function registerAuthRoutes(app) {
     const found = readSession(req);
     if (found) sessions.delete(found.token);
     // Attributes have to match the ones it was set with or it is not cleared.
-    res.clearCookie(COOKIE, { path: "/", sameSite: "strict", secure: secureCookies() });
+    res.clearCookie(COOKIE, { path: "/", sameSite: cookieSameSite(), secure: secureCookies() });
     res.json({ ok: true });
   });
 

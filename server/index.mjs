@@ -5,7 +5,7 @@ import { authBanner, initOwner, registerAuthRoutes, requireCsrf, requireOwner } 
 import { QarauService } from "./qarau-service.mjs";
 import { loadServiceConfig, publicRuntimeSummary } from "./runtime/config.mjs";
 import { createDatabase } from "./db/mongo.mjs";
-import { S3ArtifactStore } from "./storage/artifact-store.mjs";
+import { createArtifactStore } from "./storage/create-artifact-store.mjs";
 import { createV1Router } from "./api/v1.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -89,7 +89,7 @@ registerAuthRoutes(app);
 if (runtimeConfig.runtimeMode === "integrated") {
   const database = await createDatabase(runtimeConfig.values.MONGODB_URI, runtimeConfig.values.MONGODB_DB ?? "qarau");
   const integratedDb = database.db;
-  const integratedArtifacts = S3ArtifactStore.fromEnvironment(process.env);
+  const integratedArtifacts = createArtifactStore({ db: integratedDb });
   app.use("/api/v1", createV1Router({
     db: integratedDb,
     artifactStore: integratedArtifacts,

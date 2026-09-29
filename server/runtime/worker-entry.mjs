@@ -12,7 +12,7 @@ import { createRepositories } from "../db/repositories/index.mjs";
 import { enqueueDueSources } from "../scheduler/enqueue-due-sources.mjs";
 import { enqueueStaleRounds } from "../scheduler/enqueue-stale-rounds.mjs";
 import { createQueueWorker } from "../jobs/worker.mjs";
-import { S3ArtifactStore } from "../storage/artifact-store.mjs";
+import { createArtifactStore } from "../storage/create-artifact-store.mjs";
 import { loadServiceConfig, publicRuntimeSummary } from "./config.mjs";
 
 const role = process.argv[2];
@@ -28,11 +28,11 @@ if (["worker-scrape", "worker-discovery", "worker-analysis", "worker-chain"].inc
   db = database.db;
   const queue = new MongoJobQueue(db);
   const handlers = role === "worker-scrape"
-    ? { "scrape.source": createScrapeSourceHandler({ db, artifactStore: S3ArtifactStore.fromEnvironment(process.env) }) }
+    ? { "scrape.source": createScrapeSourceHandler({ db, artifactStore: createArtifactStore({ db }) }) }
     : role === "worker-discovery"
       ? { "discovery.run": createDiscoveryRunHandler({ db }) }
       : role === "worker-analysis"
-        ? { "analysis.run": createAnalysisRunHandler({ db, artifactStore: S3ArtifactStore.fromEnvironment(process.env) }) }
+        ? { "analysis.run": createAnalysisRunHandler({ db, artifactStore: createArtifactStore({ db }) }) }
         : (() => {
           const publish = createChainPublishHandler({ db, publisherSignerUrl: config.values.PUBLISHER_SIGNER_URL, publisherSignerToken: config.values.PUBLISHER_SIGNER_TOKEN });
           const settle = createChainSettleHandler({ db, publisherSignerUrl: config.values.PUBLISHER_SIGNER_URL, publisherSignerToken: config.values.PUBLISHER_SIGNER_TOKEN, rpcUrl: config.values.SOLANA_RPC_URL, programId: config.values.SOLANA_PROGRAM_ID });

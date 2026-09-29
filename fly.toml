@@ -3,9 +3,7 @@
 # Деплой из КОРНЯ репозитория:
 #   fly deploy --remote-only --ha=false --yes
 #
-# Режим по умолчанию — legacy (данные в зашифрованном локальном сторе на
-# Fly Volume). Для integrated-режима нужны MongoDB Atlas, S3 и остальные
-# секреты из server/runtime/config.mjs. Индексы создаёт npm run db:migrate.
+# Integrated API stores records and private artifacts in MongoDB.
 
 app = 'server-hidden-canyon-2603'
 primary_region = 'arn'
@@ -16,7 +14,10 @@ primary_region = 'arn'
 [env]
   NODE_ENV = 'production'
   API_PORT = '8080'
-  QARAU_RUNTIME_MODE = 'legacy'
+  QARAU_RUNTIME_MODE = 'integrated'
+  ARTIFACT_STORE = 'mongodb'
+  SOLANA_RPC_URL = 'https://api.devnet.solana.com'
+  SOLANA_PROGRAM_ID = '63VZwKUPcWqo2JwpQHLxT4HHgQsMREpERZg3DpfSnnMw'
   # За Fly proxy клиентский IP и https приходят через заголовки.
   TRUST_PROXY = '1'
   COOKIE_SECURE = 'true'

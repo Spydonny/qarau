@@ -41,6 +41,16 @@ test("integrated services fail closed on missing credentials and Mainnet RPC", (
   assert.throws(() => loadServiceConfig("api", apiEnvironment), /MVP supports only/);
 });
 
+test("Mongo artifact storage needs no S3 credentials", () => {
+  const environment = { ...integrated, ARTIFACT_STORE: "mongodb" };
+  delete environment.SOLANA_PUBLISHER_KEY_PATH;
+  for (const name of ["S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"]) delete environment[name];
+  const config = loadServiceConfig("api", environment);
+  assert.equal(config.artifactStore, "mongodb");
+  assert.equal(publicRuntimeSummary(config).persistence, "mongodb-private-artifacts");
+  assert.throws(() => loadServiceConfig("api", { ...environment, ARTIFACT_STORE: "s3" }));
+});
+
 test("publisher key material is rejected outside the signer", () => {
   assert.throws(() => loadServiceConfig("api", integrated), /publisher_key_forbidden/);
   assert.equal(loadServiceConfig("publisher-signer", integrated).values.SOLANA_PUBLISHER_KEY_PATH, "/run/secrets/publisher.json");
