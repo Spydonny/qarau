@@ -61,7 +61,10 @@ if (role === "scheduler" && process.env.QARAU_WORKER_EXECUTE === "true") {
     }
   };
   await run();
-  const timer = setInterval(run, 60_000);
+  const timer = setInterval(async () => {
+    try { const q = new PostgresJobQueue(pool); await q.recoverExpired(); } catch {}
+    await run();
+  }, 60_000);
   stopScheduler = () => clearInterval(timer);
 }
 

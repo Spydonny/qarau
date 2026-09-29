@@ -3,6 +3,7 @@ import { AccountRole, address, appendTransactionMessageInstruction, createSolana
 import { deriveAccessRoundPda, deriveDatasetCommitmentPda, deriveRegistryPda, readAccessRound, readDatasetCommitment } from "../solana/registry-client.mjs";
 
 const SYSTEM = "11111111111111111111111111111111";
+function isAllowedSolanaRpc(rpcUrl) { try { const host = new URL(String(rpcUrl)).hostname.toLowerCase(); return host === "api.devnet.solana.com" || host.endsWith(".devnet.solana.com") || host === "localhost" || host === "127.0.0.1" || host === "::1"; } catch { return false; } }
 function discriminator(name) { return createHash("sha256").update(`global:${name}`).digest().subarray(0, 8); }
 function u32(value) { const bytes = Buffer.alloc(4); bytes.writeUInt32LE(value); return bytes; }
 function u64(value) { const bytes = Buffer.alloc(8); bytes.writeBigUInt64LE(BigInt(value)); return bytes; }
@@ -38,7 +39,7 @@ async function send(rpc, signer, instructions) {
 /** Restricted publisher operation: initialize (once), commit, then open an access round. */
 export async function publishPackageOnChain({ signer, rpcUrl, programId, input }) {
   if (!signer || !rpcUrl || !programId || process.env.DISABLE_SOLANA_SIGNING === "true") throw new Error("publisher_signing_disabled");
-  if (!/devnet|localhost|127\.0\.0\.1/i.test(rpcUrl)) throw new Error("unsupported_solana_network");
+  if (!isAllowedSolanaRpc(rpcUrl)) throw new Error("unsupported_solana_network");
   const rpc = createSolanaRpc(rpcUrl); const registryPda = await deriveRegistryPda(programId);
   const commitmentPda = await deriveDatasetCommitmentPda(programId, bytes(input.datasetIdHash, "dataset_id_hash"), input.version); const accessRoundPda = await deriveAccessRoundPda(programId, commitmentPda);
   const treasury = input.treasury ?? signer.address;
@@ -54,7 +55,7 @@ export async function publishPackageOnChain({ signer, rpcUrl, programId, input }
 
 export async function settleAccessRoundOnChain({ signer, rpcUrl, programId, roundPda }) {
   if (!signer || !rpcUrl || !programId || process.env.DISABLE_SOLANA_SIGNING === "true") throw new Error("publisher_signing_disabled");
-  if (!/devnet|localhost|127\.0\.0\.1/i.test(rpcUrl)) throw new Error("unsupported_solana_network");
+  if (!isAllowedSolanaRpc(rpcUrl)) throw new Error("unsupported_solana_network");
   const current = await readAccessRound({ rpcUrl, programId, roundPda });
   if (!current) throw new Error("access_round_not_found");
   if (current.status === 2) return Object.freeze({ roundPda, finalizedSlot: current.slot, transaction: null, alreadySettled: true });
@@ -67,7 +68,7 @@ export async function settleAccessRoundOnChain({ signer, rpcUrl, programId, roun
 /** Emergency stop: the registry authority is the publisher signer set at initialize. */
 export async function setRegistryPausedOnChain({ signer, rpcUrl, programId, paused }) {
   if (!signer || !rpcUrl || !programId || process.env.DISABLE_SOLANA_SIGNING === "true") throw new Error("publisher_signing_disabled");
-  if (!/devnet|localhost|127\.0\.0\.1/i.test(rpcUrl)) throw new Error("unsupported_solana_network");
+  if (!isAllowedSolanaRpc(rpcUrl)) throw new Error("unsupported_solana_network");
   if (typeof paused !== "boolean") throw new Error("invalid_paused_flag");
   const rpc = createSolanaRpc(rpcUrl); const registryPda = await deriveRegistryPda(programId);
   const registry = await rpc.getAccountInfo(registryPda, { commitment: "finalized", encoding: "base64" }).send();

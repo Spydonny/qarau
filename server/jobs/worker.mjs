@@ -12,6 +12,9 @@ export function createQueueWorker({ queue, workerId, types, handlers, pollMs = 1
   let timer = null;
 
   async function runOnce() {
+    if (typeof queue.recoverExpired === "function") {
+      try { await queue.recoverExpired(); } catch { /* best-effort terminal recovery */ }
+    }
     const job = await queue.claim({ workerId, types });
     if (!job) return false;
     const leaseSeconds = Number.isInteger(queue.leaseSeconds) ? queue.leaseSeconds : 60;

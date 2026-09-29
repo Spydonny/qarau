@@ -23,7 +23,7 @@ const qarau = new QarauService();
 await qarau.init();
 app.disable("x-powered-by");
 // Behind a proxy the client address is needed for login throttling.
-app.set("trust proxy", 1);
+app.set("trust proxy", process.env.TRUST_PROXY === "1" ? 1 : 0);
 app.use(express.json({ limit: "1mb" }));
 
 /**

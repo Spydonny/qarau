@@ -117,13 +117,15 @@ export function normalizeSourceRecords(records) {
     if (!plain(record)) continue;
     const at = timestamp(record[columns.timeKey]);
     if (!at) { dropped.invalidTimestamp += 1; continue; }
-    const availableAt = timestamp(record[columns.availableKey]) ?? at;
+    const publishedAt = columns.availableKey ? timestamp(record[columns.availableKey]) : null;
+    const availableAt = publishedAt ?? at;
+    const availableAtInferred = !publishedAt;
     const values = Object.fromEntries(columns.numericKeys.flatMap((key) => {
       const value = finite(record[key]);
       return value === null ? [] : [[columns.normalized.get(key), value]];
     }));
     if (!Object.keys(values).length) { dropped.missingNumeric += 1; continue; }
-    rows.push({ timestamp: at, availableAt, values });
+    rows.push({ timestamp: at, availableAt, availableAtInferred, values });
   }
   if (!rows.length) fail("source_has_no_usable_records");
   return Object.freeze({

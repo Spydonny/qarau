@@ -34,7 +34,7 @@ const validators = Object.freeze({
   S3_SECRET_ACCESS_KEY: z.string().min(8),
   SOURCE_URL_ENCRYPTION_KEY: z.string().regex(/^[a-f0-9]{64}$/i),
   WALLET_SESSION_SECRET: z.string().min(32),
-  SOLANA_RPC_URL: privateUrl.refine((value) => /devnet|127\.0\.0\.1|localhost/i.test(value), "MVP supports only Devnet or local validator RPC"),
+  SOLANA_RPC_URL: privateUrl.refine((value) => { try { const host = new URL(value).hostname.toLowerCase(); if (host === "api.devnet.solana.com" || host.endsWith(".devnet.solana.com") || host === "localhost" || host === "127.0.0.1" || host === "::1") return true; } catch {} return false; }, "MVP supports only Devnet or local validator RPC"),
   SOLANA_PROGRAM_ID: z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/),
   PUBLISHER_SIGNER_URL: privateUrl,
   PUBLISHER_SIGNER_TOKEN: secret,

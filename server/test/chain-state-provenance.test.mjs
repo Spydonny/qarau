@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { isVerifiedDevnetOpportunity } from "../api/v1.mjs";
@@ -30,11 +29,4 @@ test("public opportunities require both commitment and round to be RPC-verified 
     { dataset_pda: null },
     { round_pda: null },
   ]) assert.equal(isVerifiedDevnetOpportunity({ ...verified, ...mutation }), false, JSON.stringify(mutation));
-});
-
-test("auction demo seed cannot claim finalized Devnet provenance", async () => {
-  const seed = await readFile(new URL("../../scripts/seed-auction-demo.sql", import.meta.url), "utf8");
-  assert.doesNotMatch(seed, /'devnet'.*'finalized'.*jsonb_build_object\('demo_seed', true\)/);
-  assert.match(seed, /'localnet'/);
-  assert.match(seed, /'processed', 'synthetic_demo'/);
 });

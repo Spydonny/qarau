@@ -59,9 +59,8 @@ export class PostgresJobQueue {
         `WITH candidate AS (
            SELECT id
            FROM jobs
-           WHERE attempts < max_attempts
-             AND (
-               (status IN ('queued', 'retry_wait') AND available_at <= now())
+           WHERE (
+               (attempts < max_attempts AND status IN ('queued', 'retry_wait') AND available_at <= now())
                OR (status = 'running' AND lease_until <= now())
              )
              AND ($1::text[] IS NULL OR type = ANY($1))
